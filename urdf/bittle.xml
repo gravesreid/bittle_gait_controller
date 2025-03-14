@@ -1,11 +1,11 @@
 <mujoco model="bittle">
-  <option iterations="50" timestep="0.001" solver="PGS" gravity="0 0 -9.81" />
+  <option iterations="500" timestep="0.001" solver="PGS" gravity="0 0 -9.81" />
 
   <compiler angle="radian" meshdir="meshes" eulerseq="zyx" autolimits="true" />
 
   <default>
-    <joint limited="true" damping="0.01" armature="0.01" frictionloss="0.01" />
-    <geom condim="4" contype="1" conaffinity="15" friction="0.9 0.2 0.2" solref="0.001 2" />
+    <joint limited="true" damping="1.1" armature="0.01" frictionloss="0.01" />
+    <geom condim="4" contype="1" conaffinity="15" friction="1. 0.2 0.2" solref="0.001 2" />
     <motor ctrllimited="true" />
     <equality solref="0.001 2" />
     <default class="visualgeom">
@@ -33,7 +33,7 @@
   <worldbody>
     <light directional="true" diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1" pos="0 0 5.0" dir="0 0 -1" castshadow="false" />
     <light directional="true" diffuse="0.6 0.6 0.6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1" />
-    <geom name="ground" type="plane" pos="0 0 0" size="100 100 0.001" quat="1 0 0 0" material="matplane" condim="3" conaffinity="15" />
+    <geom name="ground" type="plane" pos="0 0 0" size="100 100 0.001" quat="1 0 0 0" material="matplane"  condim="3" conaffinity="15" />
     <camera name="fixed" pos="0 -3.0 1.4239305602569667" xyaxes="1 0 0 0 0 1" />
     <camera name="track" mode="trackcom" pos="0 -3.0 1.4239305602569667" xyaxes="1 0 0 0 0 1" />
     <body name="root" pos="0 0 0.9239305602569667" quat="1 0 0 0">
@@ -53,7 +53,7 @@
         <body name="left-back-knee-link" pos="0 -0.49172 0">
           <inertial pos="-0.08998 0 -0.14638" quat="0.385725 0.189855 0.608868 0.666671" mass="0.017" diaginertia="0.000836537 0.000627558 0.000415905" />
           <joint name="left-back-knee-joint" pos="0 0 0" axis="0 0 1" range="-1.22173 1.48353" actuatorfrcrange="-1 1" />
-          <geom name="left_back_knee_c" pos="-0.08998 0 -0.14638" quat="0.499998 -0.5 0.5 0.500002" type="mesh" mesh="left_knee.002" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
+          <geom friction=".33" name="left_back_knee_c" pos="-0.08998 0 -0.14638" quat="0.499998 -0.5 0.5 0.500002" type="mesh" mesh="left_knee.002" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
           <geom type="mesh" rgba="" mesh="left_knee.002" pos="-0.08998 0 -0.14638" quat="0.499998 -0.5 0.5 0.500002" />
         </body>
       </body>
@@ -65,19 +65,19 @@
         <body name="left-front-knee-link" pos="6e-05 -0.49172 0">
           <inertial pos="-0.09232 0 -0.14614" quat="0.648853 -0.0696517 0.415405 0.633701" mass="0.017" diaginertia="0.000703116 0.000604252 0.000572632" />
           <joint name="left-front-knee-joint" pos="0 0 0" axis="0 0 1" range="-1.22173 1.48353" actuatorfrcrange="-1 1" />
-          <geom name="left_front_knee_c" pos="-0.09232 0 -0.14614" quat="0.499998 -0.5 0.5 0.500002" type="mesh" mesh="left_knee.003" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
+          <geom friction=".33" name="left_front_knee_c" pos="-0.09232 0 -0.14614" quat="0.499998 -0.5 0.5 0.500002" type="mesh" mesh="left_knee.003" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
           <geom type="mesh" rgba="" mesh="left_knee.003" pos="-0.09232 0 -0.14614" quat="0.499998 -0.5 0.5 0.500002" />
         </body>
       </body>
       <body name="right-back-shoulder-link" pos="0.45149 -0.51923 -0.02102" quat="0.499998 -0.5 0.500002 -0.5">
         <inertial pos="0 0.24575 0.0777" quat="0.707107 0.707107 0 0" mass="0.006" diaginertia="0.00044 0.00044 2e-05" />
         <joint name="right-back-shoulder-joint" pos="0 0 0" axis="0 0 1" range="-1.5708 1.22173" actuatorfrcrange="-1 1" />
-        <geom name="right_back_shoulder_c" pos="0 0.24575 0.0777" quat="0.499998 0.5 -0.5 0.500002" type="mesh" mesh="shoulder.005" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
+        <geom friction=".33" name="right_back_shoulder_c" pos="0 0.24575 0.0777" quat="0.499998 0.5 -0.5 0.500002" type="mesh" mesh="shoulder.005" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
         <geom type="mesh" rgba="" mesh="shoulder.005" pos="0 0.24575 0.0777" quat="0.499998 0.5 -0.5 0.500002" />
         <body name="right-back-knee-link" pos="0.00015 0.49938 0.03996" quat="1.32679e-06 0 0 1">
           <inertial pos="0.08426 -0.00238 -0.1382" quat="0.64714 0.175903 0.606664 0.42688" mass="0.017" diaginertia="0.000676185 0.000616918 0.000596897" />
           <joint name="right-back-knee-joint" pos="0 0 0" axis="0 0 1" range="-1.22173 1.48353" actuatorfrcrange="-1 1" />
-          <geom name="right_back_knee_c" pos="0.08426 -0.00238 -0.1382" quat="0.499998 -0.5 -0.5 -0.500002" type="mesh" mesh="right_knee.002" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
+          <geom friction=".33" name="right_back_knee_c" pos="0.08426 -0.00238 -0.1382" quat="0.499998 -0.5 -0.5 -0.500002" type="mesh" mesh="right_knee.002" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
           <geom type="mesh" rgba="" mesh="right_knee.002" pos="0.08426 -0.00238 -0.1382" quat="0.499998 -0.5 -0.5 -0.500002" />
         </body>
       </body>
@@ -89,7 +89,7 @@
         <body name="right-front-knee-link" pos="6e-05 0.49938 0.03996" quat="1.32679e-05 0 0 1">
           <inertial pos="0.09497 -0.00238 -0.1382" quat="0.64714 0.175903 0.606664 0.42688" mass="0.017" diaginertia="0.000676185 0.000616918 0.000596897" />
           <joint name="right-front-knee-joint" pos="0 0 0" axis="0 0 1" range="-1.22173 1.48353" actuatorfrcrange="-1 1" />
-          <geom name="right_front_knee_c" pos="0.09497 -0.00238 -0.1382" quat="0.499998 -0.5 -0.5 -0.500002" type="mesh" mesh="right_knee.003" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
+          <geom friction=".33" name="right_front_knee_c" pos="0.09497 -0.00238 -0.1382" quat="0.499998 -0.5 -0.5 -0.500002" type="mesh" mesh="right_knee.003" contype="1" conaffinity="0" density="0" group="1" class="visualgeom" />
           <geom type="mesh" rgba="" mesh="right_knee.003" pos="0.09497 -0.00238 -0.1382" quat="0.499998 -0.5 -0.5 -0.500002" />
         </body>
       </body>
