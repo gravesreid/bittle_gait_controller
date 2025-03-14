@@ -97,7 +97,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             elif actuator_name == "right-front-knee-joint":
                 data.qpos[qpos_idx] = np.deg2rad(wkf[index][5])
         index += 1
-        #time.sleep(0.1)
+        time.sleep(0.005)
         if index == max_index:
             index = 0
 
