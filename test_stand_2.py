@@ -32,51 +32,70 @@ print("Actuator to qvel mapping:", actuator_to_qvel)
 
 
 wkf = [  
-    [18,  54,  58,  52,   7,  13,  -2,   9],
-  [14,  56,  52,  54,  12,  14,  -3,  10],
-  [15,  57,  46,  55,  17,  15,  -4,  11],
-  [16,  58,  38,  57,  16,  17,  -2,  12],
-  [19,  59,  31,  58,  13,  19,   1,  14],
-  [22,  59,  24,  60,  12,  22,   6,  14],
-  [26,  60,  21,  61,  10,  24,  12,  16],
-  [28,  58,  23,  62,   9,  30,  16,  18],
-  [31,  61,  25,  63,   8,  30,  13,  20],
-  [34,  67,  28,  63,   7,  23,  12,  24],
-  [36,  69,  31,  63,   6,  15,  11,  27],
-  [38,  68,  34,  63,   7,   8,  10,  31],
-  [41,  65,  36,  62,   7,   3,   9,  35],
-  [43,  60,  39,  65,   7,  -1,   9,  37],
-  [46,  55,  41,  70,   7,  -3,   9,  27],
-  [47,  50,  43,  71,   7,  -5,   9,  23],
-  [49,  43,  47,  71,   8,  -5,   7,  14],
-  [51,  35,  48,  69,   8,  -3,   8,   8],
-  [53,  28,  51,  66,   9,   1,   8,   2],
-  [54,  18,  52,  63,  12,   7,   9,  -2],
-  [55,  15,  54,  56,  14,  10,  10,  -3],
-  [56,  13,  55,  51,  15,  16,  11,  -4],
-  [57,  16,  57,  43,  17,  16,  12,  -3],
-  [58,  18,  58,  36,  19,  14,  14,  -2],
-  [59,  21,  60,  28,  21,  12,  14,   2],
-  [60,  25,  61,  23,  24,  10,  16,   9],
-  [60,  28,  62,  22,  27,   9,  18,  15],
-  [60,  31,  63,  23,  30,   8,  20,  16],
-  [66,  32,  63,  26,  24,   7,  24,  13],
-  [68,  35,  63,  29,  19,   6,  27,  11],
-  [68,  38,  63,  32,  10,   6,  31,  10],
-  [66,  40,  62,  35,   4,   7,  35,  10],
-  [62,  42,  65,  37,   0,   7,  37,   9],
-  [57,  45,  70,  39,  -2,   7,  27,   9],
-  [52,  47,  71,  41,  -5,   7,  23,   9],
-  [45,  48,  71,  44,  -5,   8,  14,   9],
-  [38,  51,  69,  47,  -3,   8,   8,   7],
-  [30,  52,  66,  49,  -1,   9,   2,   8],
-  [22,  53,  63,  51,   4,  12,  -2,   8]
+  [ 9,  49,  53,  45,  24,  20,  -2,  15],
+  [ 8,  50,  41,  46,  28,  21,  -1,  15],
+  [10,  51,  26,  47,  26,  22,   6,  16],
+  [12,  52,  23,  48,  24,  24,   9,  17],
+  [14,  52,  20,  49,  22,  26,  12,  18],
+  [16,  53,  17,  51,  21,  27,  17,  18],
+  [18,  53,  14,  52,  20,  29,  22,  19],
+  [21,  54,  11,  54,  18,  30,  27,  19],
+  [22,  54,  11,  54,  18,  32,  29,  20],
+  [25,  54,  13,  55,  16,  34,  27,  21],
+  [26,  54,  16,  56,  16,  37,  24,  23],
+  [28,  54,  18,  56,  15,  39,  23,  24],
+  [30,  52,  20,  57,  14,  45,  22,  26],
+  [32,  54,  22,  57,  14,  44,  21,  28],
+  [33,  58,  24,  57,  15,  36,  20,  30],
+  [34,  61,  26,  57,  15,  31,  19,  32],
+  [36,  64,  28,  57,  14,  24,  18,  35],
+  [38,  66,  29,  57,  14,  20,  18,  38],
+  [39,  67,  31,  57,  14,  16,  17,  40],
+  [41,  64,  32,  56,  14,   5,  17,  43],
+  [42,  55,  35,  57,  14,  -1,  16,  44],
+  [44,  44,  37,  62,  15,  -3,  14,  35],
+  [45,  30,  39,  66,  15,   1,  14,  29],
+  [46,  21,  40,  68,  15,   5,  14,  23],
+  [47,  19,  42,  70,  16,   9,  14,  19],
+  [48,  16,  43,  70,  17,  12,  15,  17],
+  [49,  12,  44,  67,  18,  17,  15,   5],
+  [49,   9,  46,  59,  20,  24,  15,  -2],
+  [50,   8,  47,  47,  21,  28,  16,  -2],
+  [51,  10,  48,  34,  22,  26,  16,   1],
+  [52,  12,  49,  24,  24,  24,  17,   6],
+  [52,  14,  50,  21,  26,  22,  18,  10],
+  [53,  16,  51,  19,  27,  21,  19,  12],
+  [53,  18,  52,  15,  29,  20,  20,  19],
+  [54,  21,  54,  12,  30,  18,  19,  24],
+  [54,  22,  55,  12,  32,  18,  20,  27],
+  [54,  25,  55,  11,  34,  16,  22,  29],
+  [54,  26,  56,  14,  37,  16,  24,  26],
+  [54,  28,  56,  17,  39,  15,  25,  24],
+  [52,  30,  57,  18,  45,  14,  27,  23],
+  [54,  32,  57,  21,  44,  14,  29,  21],
+  [58,  33,  57,  23,  36,  15,  31,  20],
+  [61,  34,  57,  24,  31,  15,  33,  20],
+  [64,  36,  57,  26,  24,  14,  36,  19],
+  [66,  38,  57,  28,  20,  14,  39,  18],
+  [67,  39,  56,  30,  16,  14,  42,  17],
+  [64,  41,  56,  32,   5,  14,  45,  17],
+  [55,  42,  59,  33,  -1,  14,  41,  17],
+  [44,  44,  64,  35,  -3,  15,  33,  16],
+  [30,  45,  67,  38,   1,  15,  27,  14],
+  [21,  46,  68,  39,   5,  15,  22,  14],
+  [19,  47,  70,  41,   9,  16,  18,  14],
+  [16,  48,  69,  42,  12,  17,  11,  14],
+  [12,  49,  63,  44,  17,  18,   1,  15]
+]
+
+balance = [
+    [30, -60, -60, 30, 30, 30, 30, 30]
 ]
 
 max_index = len(wkf)
 index = 0
 kp = 20
-ki = 10
+ki = 1
 kd = 1
 dt = 0.001
 joint_to_qpos = {}
@@ -106,23 +125,26 @@ num_joints = 8
 angle_holder = np.zeros((num_timesteps, num_joints))
 reference_holder = np.zeros((num_timesteps, num_joints))
 actuator_nums = [3,7,0,4,2,6,1,5]
-max_inner_iterations = 100
+max_inner_iterations = 1000
 control_effort = np.zeros((num_timesteps, num_joints))
 for frame in wkf:
     # Right-back-shoulder-joint is index 2 in actuator_nums (original index 2)
     # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
     frame[1] *= -1  # Right-front-shoulder
     frame[2] *= -1  # Right-back-shoulder
+    frame[5] *= -1  # Right-front-knee
+    frame[6] *= -1  # Right-back-knee
 with mujoco.viewer.launch_passive(model, data) as viewer:
-    if os.name == 'nt':
-        import ctypes
-        hwnd = ctypes.windll.user32.GetForegroundWindow()
-        ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
+    #if os.name == 'nt':
+    #    import ctypes
+    #    hwnd = ctypes.windll.user32.GetForegroundWindow()
+    #    ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
 
     for i in range(num_timesteps):
         
         # Desired angles for current timestep
-        desired_angles = np.array([np.deg2rad(wkf[index][num]) for num in actuator_nums])
+        #desired_angles = np.array([np.deg2rad(wkf[index][num]) for num in actuator_nums])
+        desired_angles = np.array([np.deg2rad(balance[0][num]) for num in actuator_nums])
 
         # Initialize errors
         error_vec = desired_angles - np.array([data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
@@ -140,7 +162,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
                 # PID control
                 ctrl = kp*e + ki*e*dt + kd*((e - prev_e))/dt
-                data.ctrl[actuator_to_ctrl[actuator_map[num]]] = np.clip(ctrl, -1, 1)
+                data.ctrl[actuator_to_ctrl[actuator_map[num]]] = np.clip(ctrl, -10, 10)
                 clipped_ctrl = data.ctrl[actuator_to_ctrl[actuator_map[num]]] 
                 control_effort[i, j] = clipped_ctrl
 
