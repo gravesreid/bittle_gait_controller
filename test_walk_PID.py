@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Load model and data
-model = mujoco.MjModel.from_xml_path("urdf/bittle_grav.xml")
+model = mujoco.MjModel.from_xml_path("urdf/bittle_PID.xml")
 data = mujoco.MjData(model)
 
 # Build mappings for qpos and qvel indices for each actuator/joint
