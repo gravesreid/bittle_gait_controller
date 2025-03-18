@@ -88,9 +88,6 @@ wkf = [
   [12,  49,  63,  44,  17,  18,   1,  15]
 ]
 
-balance = [
-    [30, -60, -60, 30, 30, 30, 30, 30]
-]
 
 max_index = len(wkf)
 index = 0
@@ -143,8 +140,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
     for i in range(num_timesteps):
         
         # Desired angles for current timestep
-        #desired_angles = np.array([np.deg2rad(wkf[index][num]) for num in actuator_nums])
-        desired_angles = np.array([np.deg2rad(balance[0][num]) for num in actuator_nums])
+        desired_angles = np.array([np.deg2rad(wkf[index][num]) for num in actuator_nums])
 
         # Initialize errors
         error_vec = desired_angles - np.array([data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
