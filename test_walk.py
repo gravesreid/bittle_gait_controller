@@ -86,6 +86,14 @@ wkf = [
   [12,  49,  63,  44,  17,  18,   1,  15]
 ]
 
+for frame in wkf:
+    # Right-back-shoulder-joint is index 2 in actuator_nums (original index 2)
+    # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
+    frame[1] *= -1  # Right-front-shoulder
+    frame[2] *= -1  # Right-back-shoulder
+    frame[5] *= -1  # Right-front-knee
+    frame[6] *= -1  # Right-back-knee
+
 max_index = len(wkf)
 index = 0
 
@@ -104,15 +112,15 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             elif actuator_name == "left-front-knee-joint":
                 data.qpos[qpos_idx] = np.deg2rad(wkf[index][4])
             elif actuator_name == "right-back-shoulder-joint":
-                data.qpos[qpos_idx] = np.deg2rad(wkf[index][2] - 90)
+                data.qpos[qpos_idx] = np.deg2rad(wkf[index][2])
             elif actuator_name == "right-back-knee-joint":
                 data.qpos[qpos_idx] = np.deg2rad(wkf[index][6])
             elif actuator_name == "right-front-shoulder-joint":
-                data.qpos[qpos_idx] = np.deg2rad(wkf[index][1] - 90)
+                data.qpos[qpos_idx] = np.deg2rad(wkf[index][1])
             elif actuator_name == "right-front-knee-joint":
                 data.qpos[qpos_idx] = np.deg2rad(wkf[index][5])
         index += 1
-        #time.sleep(0.1)
+        time.sleep(0.01)
         if index == max_index:
             index = 0
 
