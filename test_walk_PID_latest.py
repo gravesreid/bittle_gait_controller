@@ -123,6 +123,8 @@ for frame in balance:
     # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
     frame[1] *= -1  # Right-front-shoulder
     frame[2] *= -1  # Right-back-shoulder
+    frame[5] *= -1  # Right-front-knee
+    frame[6] *= -1  # Right-back-knee
 with mujoco.viewer.launch_passive(model, data) as viewer:
     if os.name == 'nt':
        import ctypes

@@ -242,11 +242,11 @@ def execute(behavior, num_timesteps, dt, kp, ki, kd, clipped_control = False, li
     if plotty:
         plot()
 
-kp = 5e5
-ki = 1e1
-kd = 1e-1
+kp = 1e5
+ki = 50
+kd = 100
 dt = 0.001
-num_timesteps = int(1e4)
+num_timesteps = int(1.5e4)
 with mujoco.viewer.launch_passive(model, data) as viewer:
     if os.name == 'nt':
         import ctypes
@@ -256,5 +256,5 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
     execute(balance,num_timesteps,dt, kp,ki,kd, plotty=True)
     #print("Walk Forward")
     #execute(wkf,num_timesteps,dt,kp,ki,kd,dt, plotty = True)
-    print("Walk Backward")
-    execute(bk,num_timesteps,dt,kp,ki,kd,dt, plotty = True)
+    #print("Walk Backward")
+    #execute(bk,num_timesteps,dt,kp,ki,kd,dt, plotty = True)
