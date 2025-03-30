@@ -169,10 +169,8 @@ def execute(behavior, num_timesteps, dt, kp, ki, kd, clipped_control = False, li
         # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
         frame[1] *= -1  # Right-front-shoulder
         frame[2] *= -1  # Right-back-shoulder
-        frame[5] *= -1  # Right-front-knee
-        frame[6] *= -1  # Right-back-knee
-        #frame[1] -= -10  # Right-front-shoulder
-        #frame[2] -= -10  # Right-back-shoulder
+        frame[5] *= -1  # Right-back-knee
+        frame[6] *= -1  # Right-front-shoulder
 
     #walking loop
     for i in range(num_timesteps):
@@ -242,18 +240,18 @@ def execute(behavior, num_timesteps, dt, kp, ki, kd, clipped_control = False, li
     if plotty:
         plot()
 
-kp = 5e5
-ki = 1e1
-kd = 1e-1
-dt = 0.001
+kp = 6e4
+ki = 5e2
+kd = 5e1
+dt = 1e-3
 num_timesteps = int(1e4)
 with mujoco.viewer.launch_passive(model, data) as viewer:
     if os.name == 'nt':
         import ctypes
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
-    print("Stand")
-    execute(balance,num_timesteps,dt, kp,ki,kd, plotty=True)
+    #print("Stand")
+    #execute(balance,num_timesteps,dt, kp,ki,kd, plotty=True)
     #print("Walk Forward")
     #execute(wkf,num_timesteps,dt,kp,ki,kd,dt, plotty = True)
     print("Walk Backward")
