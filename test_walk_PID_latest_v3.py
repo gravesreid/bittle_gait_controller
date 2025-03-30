@@ -183,6 +183,8 @@ def execute(behavior, num_timesteps, dt, kp, ki, kd, clipped_control = False, li
         # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
         frame[1] *= -1  # Right-front-shoulder
         frame[2] *= -1  # Right-back-shoulder
+        frame[5] *= -1
+        frame[6] *= -1
 
     #walking loop
     for i in range(num_timesteps):
