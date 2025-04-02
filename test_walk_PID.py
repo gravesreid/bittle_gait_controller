@@ -9,7 +9,7 @@ matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 import os
 
 from skills import balance, wkf, bk
-from PID import PID_Controller
+from PID_Controller import PID_Controller
 
 pid_controller = PID_Controller("urdf/bittle.xml")
 
