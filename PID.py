@@ -6,9 +6,9 @@ import matplotlib
 matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 
 class PID_Controller:
-    def __init__(self):
+    def __init__(self, xml_path):
         # Load self.model and self.data
-        self.model = mujoco.MjModel.from_xml_path("urdf/bittle.xml")
+        self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
 
         # Build mappings for qpos and qvel indices for each actuator/joint

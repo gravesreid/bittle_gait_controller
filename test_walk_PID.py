@@ -11,7 +11,7 @@ import os
 from skills import balance, wkf, bk
 from PID import PID_Controller
 
-pid_controller = PID_Controller()
+pid_controller = PID_Controller("urdf/bittle.xml")
 
 kp = 6e4
 ki = 5e2
