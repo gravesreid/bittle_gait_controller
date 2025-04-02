@@ -155,7 +155,7 @@ def execute(behavior, num_timesteps, dt, kp, ki, kd, clipped_control = False, li
     e = 10000
     error_vec = 100*np.ones(8)
     prev_error_vec = np.zeros(8)
-    prev_e = 0
+    int_error_vec = np.zeros(8)
     
     num_joints = 8
     angle_holder = np.zeros((num_timesteps, num_joints))
@@ -181,12 +181,17 @@ def execute(behavior, num_timesteps, dt, kp, ki, kd, clipped_control = False, li
         
         # Calculate errors
         error_vec = desired_angles - np.array([data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
-        
+        int_error_vec += error_vec*dt
+        de_dt_vec = (error_vec - prev_error_vec)/dt  
+
         # PID control - single update per timestep
         for j, num in enumerate(actuator_nums):
             e = error_vec[j]
-            prev_e = prev_error_vec[j]
-            ctrl = kp*e + ki*e*dt + kd*(e - prev_e)/dt
+            de_dt = de_dt_vec[j]
+            int_e = int_error_vec[j]
+
+            ctrl = kp*e + ki*int_e + kd*de_dt
+
             # PID control with clipping
             if clipped_control == True:
                 ctrl = np.clip(ctrl,limits[0],limits[1])
