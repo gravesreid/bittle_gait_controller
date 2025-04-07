@@ -63,13 +63,13 @@ class PID_Controller:
         actuator_nums = [3,7,0,4,2,6,1,5]
         index = 0
 
-        for frame in behavior:
-            # Right-back-shoulder-joint is index 2 in actuator_nums (original index 2)
-            # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
-            frame[1] *= -1  # Right-front-shoulder
-            frame[2] *= -1  # Right-back-shoulder
-            frame[5] *= -1  # Right-back-knee
-            frame[6] *= -1  # Right-front-shoulder
+       # for frame in behavior:
+       #     # Right-back-shoulder-joint is index 2 in actuator_nums (original index 2)
+       #     # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
+       #     frame[1] *= -1  # Right-front-shoulder
+       #     frame[2] *= -1  # Right-back-shoulder
+       #     frame[5] *= -1  # Right-back-knee
+       #     frame[6] *= -1  # Right-front-shoulder
 
         #walking loop
         for i in range(num_timesteps):
