@@ -11,6 +11,24 @@ class PID_Controller:
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
 
+        # initialize imu
+        # Get the sensor IDs
+        self.imu_orientation_sensor_id = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_SENSOR, "orientation"
+        )
+        self.imu_gyro_sensor_id = mujoco.mj_name2id(
+            self.model, mujoco.mjtObj.mjOBJ_SENSOR, "angular-velocity"
+        )
+
+        # Get the addresses (start indices) in the sensordata array
+        self.imu_orientation_address = self.model.sensor_adr[self.imu_orientation_sensor_id]
+        self.imu_gyro_address = self.model.sensor_adr[self.imu_gyro_sensor_id]
+
+        # Get the dimensions
+        self.imu_orientation_dim = self.model.sensor_dim[self.imu_orientation_sensor_id]  # Should be 4
+        self.imu_gyro_dim = self.model.sensor_dim[self.imu_gyro_sensor_id]  # Should be 3
+
+
         # Build mappings for qpos and qvel indices for each actuator/joint
         self.actuator_names = [
             mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, i)
@@ -32,6 +50,14 @@ class PID_Controller:
         print("Actuator to qpos mapping:", self.actuator_to_qpos)
         print("Actuator to qvel mapping:", self.actuator_to_qvel)
 
+    def get_imu_readings(self):
+        orientation = self.data.sensordata[
+            self.imu_orientation_address : self.imu_orientation_address + self.imu_orientation_dim
+        ]
+        gyro = self.data.sensordata[
+            self.imu_gyro_address : self.imu_gyro_address + self.imu_gyro_dim
+        ]
+        return orientation.copy(), gyro.copy()
 
 
     def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
@@ -63,18 +89,14 @@ class PID_Controller:
         actuator_nums = [3,7,0,4,2,6,1,5]
         index = 0
 
-       # for frame in behavior:
-       #     # Right-back-shoulder-joint is index 2 in actuator_nums (original index 2)
-       #     # Right-front-shoulder-joint is index 1 in actuator_nums (original index 1)
-       #     frame[1] *= -1  # Right-front-shoulder
-       #     frame[2] *= -1  # Right-back-shoulder
-       #     frame[5] *= -1  # Right-back-knee
-       #     frame[6] *= -1  # Right-front-shoulder
 
-        #walking loop
         for i in range(num_timesteps):
             
             desired_angles = np.array([np.deg2rad(behavior[index][num]) for num in actuator_nums])
+
+            orientation, gyro = self.get_imu_readings()
+            print("Orientation:", orientation)
+            print("Gyro:", gyro)
             
             # Calculate errors
             error_vec = desired_angles - np.array([self.data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
