@@ -25,7 +25,7 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
         ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
     #print("Stand")
     #execute(balance,num_timesteps,dt, kp,ki,kd, plotty=True)
-    #print("Walk Forward")
-    #execute(wkf,num_timesteps,dt,kp,ki,kd, plotty = True)
+    print("Walk Forward")
+    pid_controller.execute(wkf,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty = True)
     print("Walk Backward")
     pid_controller.execute(bk,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty=True)

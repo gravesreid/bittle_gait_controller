@@ -1,0 +1,31 @@
+import mujoco
+import mujoco.viewer
+import numpy as np
+import time
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
+
+import os
+
+from skills import balance
+from PID_Controller import PID_Controller
+
+test = [[-60, 60, 31, 13, 0, 7, 18, 40]]
+
+
+pid_controller = PID_Controller("urdf/bittle.xml")
+orientation, gyro = pid_controller.get_imu_readings()
+kp = 1e5
+ki = 50
+kd = 100
+dt = 0.001
+num_timesteps = int(20000)
+with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as viewer:
+    if os.name == 'nt':
+        import ctypes
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
+    print("Stand")
+    #pid_controller.execute(balance,num_timesteps,dt, kp,ki,kd, viewer=viewer, plotty=True)
+    pid_controller.execute(test,num_timesteps,dt, kp,ki,kd, viewer=viewer, plotty=True)
