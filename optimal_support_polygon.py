@@ -1,8 +1,12 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 from petoi_kinematics import PetoiKinematics
 from support_polygon import visualize_support_polygon
+
+from PID_Controller import PID_Controller
+import mujoco
 
 
 def project_com_to_support_polygon(feet, com):
@@ -121,10 +125,35 @@ if res.success:
     com_proj, _ = project_com_to_support_polygon(feet[stance_legs], np.array([0, 0, 0]))
     visualize_support_polygon(feet[stance_legs], com_proj)
 
+    print(optimized_xz)
+
     # Step 5: Print results
     print("\n✅ Optimization successful.")
     for i in stance_legs:
         print(f"Leg {i}: foot = {optimized_xz[i]}, hip = {np.degrees(alphas[i]):.2f}°, knee = {np.degrees(betas[i]):.2f}°")
+
+
+    free_leg_position = np.array([-45,-20]).reshape(2,1)
+    optim_hip_angle = np.flip(np.degrees(alphas[stance_legs]))
+    optim_knee_angle = np.flip(np.degrees(betas[stance_legs]))
+    balanced_angles = np.concat([free_leg_position[0], optim_hip_angle, free_leg_position[1], optim_knee_angle], axis=0)
+    
+    balanced_angles = [balanced_angles.tolist()]
+    print("Mujoco target angles:", balanced_angles)
+
+    pid_controller = PID_Controller("urdf/bittle.xml")
+    orientation, gyro = pid_controller.get_imu_readings()
+    kp = 1e5
+    ki = 50
+    kd = 100
+    dt = 0.001
+    num_timesteps = int(20000)
+    with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as viewer:
+        if os.name == 'nt':
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+            ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
+        print("Stand")
+        pid_controller.execute(balanced_angles,num_timesteps,dt, kp,ki,kd, viewer=viewer, plotty=True)
 else:
     print("\n❌ Optimization failed:", res.message)
-

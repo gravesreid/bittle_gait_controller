@@ -95,8 +95,8 @@ class PID_Controller:
             desired_angles = np.array([np.deg2rad(behavior[index][num]) for num in actuator_nums])
 
             orientation, gyro = self.get_imu_readings()
-            print("Orientation:", orientation)
-            print("Gyro:", gyro)
+            # print("Orientation:", orientation)
+            # print("Gyro:", gyro)
             
             # Calculate errors
             error_vec = desired_angles - np.array([self.data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
