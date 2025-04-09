@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from petoi_kinematics import PetoiKinematics
 
 def project_com_to_support_polygon(feet, com):
     """
@@ -52,7 +53,7 @@ def project_com_to_support_polygon(feet, com):
 
     return com_proj, is_stable
 
-def visualize_support_polygon(feet, com_proj):
+def visualize_support_polygon(feet, com_proj, pause_duration=None):
     fig, ax = plt.subplots()
     polygon = np.vstack([feet[:, :2], feet[0, :2]])
 
@@ -65,7 +66,11 @@ def visualize_support_polygon(feet, com_proj):
     ax.legend()
     ax.grid(True)
     ax.axis('equal')
-    plt.show()
+    plt.show(block=(pause_duration is None))
+
+    if pause_duration is not None:
+        plt.pause(pause_duration)
+        plt.close(fig)
 
 def visualize_support_polygon_3d(feet, com, com_proj):
     fig = plt.figure()
@@ -98,17 +103,24 @@ def visualize_support_polygon_3d(feet, com, com_proj):
     plt.show()
 
 
-# Example usage:
-feet = np.array([
-    [-5.0, -5.0, -6.0], # Front Left
-    [5.0, 5.0, -2.0], # back Right
-    [5.0, -5.0, -1.0] # back Left
-])
-com = np.array([0, 0, 0])
 
-com_proj, is_stable = project_com_to_support_polygon(feet, com)
-print("Projected COM:", com_proj)
-print("Stable?", is_stable)
 
-visualize_support_polygon(feet, com_proj)
-visualize_support_polygon_3d(feet, com, com_proj)
+def main():
+    # Example usage:
+    feet = np.array([
+        [-4, -5.0, -6.0], # Front Left
+        [3.0, 5.0, -5.0], # back Right
+        [2.0, -5.0, -6.0], # back Left
+    ])
+    com = np.array([0, 0, 0])
+
+
+    com_proj, is_stable = project_com_to_support_polygon(feet, com)
+    print("Projected COM:", com_proj)
+    print("Stable?", is_stable)
+
+    visualize_support_polygon(feet, com_proj)
+    visualize_support_polygon_3d(feet, com, com_proj)
+
+if __name__ == "__main__":
+    main()
