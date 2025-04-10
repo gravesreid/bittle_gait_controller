@@ -5,7 +5,7 @@
 
   <default>
     <joint limited="true" damping="0.01" armature="0.01" frictionloss="0.01" />
-    <geom condim="6" contype="1" conaffinity="15" friction=".9 .2 .2" solref="0.001 2.75" solimp="0.9 .95 0.1"/>
+    <geom condim="6" contype="1" conaffinity="15" friction=".9 .2 .9" solref="0.001 2.75" solimp="0.9 .95 0.1"/>
     <motor ctrllimited="false" />
     <equality solref="0.001 2" />
     <default class="visualgeom">
@@ -97,10 +97,10 @@
   </worldbody>
 
   <actuator>
-    <position name="left-back-shoulder-joint" joint="left-back-shoulder-joint" ctrllimited="false"  gear="1" forcelimited="false" />
-    <position name="left-back-knee-joint" joint="left-back-knee-joint" ctrllimited="false"  gear="1" forcelimited="false" />
     <position name="left-front-shoulder-joint" joint="left-front-shoulder-joint" ctrllimited="false"  gear="1" forcelimited="false"/>
     <position name="left-front-knee-joint" joint="left-front-knee-joint" ctrllimited="false"  gear="1" forcelimited="false"/>
+    <position name="left-back-shoulder-joint" joint="left-back-shoulder-joint" ctrllimited="false"  gear="1" forcelimited="false" />
+    <position name="left-back-knee-joint" joint="left-back-knee-joint" ctrllimited="false"  gear="1" forcelimited="false" />
     <position name="right-back-shoulder-joint" joint="right-back-shoulder-joint" ctrllimited="false"  gear="1" forcelimited="false"/>
     <position name="right-back-knee-joint" joint="right-back-knee-joint" ctrllimited="false"  gear="1" forcelimited="false"/>
     <position name="right-front-shoulder-joint" joint="right-front-shoulder-joint" ctrllimited="false"  gear="1" forcelimited="false"/>
@@ -108,18 +108,18 @@
   </actuator>
 
   <sensor>
-    <actuatorpos name="left-back-shoulder-joint_p" actuator="left-back-shoulder-joint" />
-    <actuatorvel name="left-back-shoulder-joint_v" actuator="left-back-shoulder-joint" />
-    <actuatorfrc name="left-back-shoulder-joint_f" actuator="left-back-shoulder-joint" noise="0.001" />
-    <actuatorpos name="left-back-knee-joint_p" actuator="left-back-knee-joint" />
-    <actuatorvel name="left-back-knee-joint_v" actuator="left-back-knee-joint" />
-    <actuatorfrc name="left-back-knee-joint_f" actuator="left-back-knee-joint" noise="0.001" />
     <actuatorpos name="left-front-shoulder-joint_p" actuator="left-front-shoulder-joint" />
     <actuatorvel name="left-front-shoulder-joint_v" actuator="left-front-shoulder-joint" />
     <actuatorfrc name="left-front-shoulder-joint_f" actuator="left-front-shoulder-joint" noise="0.001" />
     <actuatorpos name="left-front-knee-joint_p" actuator="left-front-knee-joint" />
     <actuatorvel name="left-front-knee-joint_v" actuator="left-front-knee-joint" />
     <actuatorfrc name="left-front-knee-joint_f" actuator="left-front-knee-joint" noise="0.001" />
+    <actuatorpos name="left-back-shoulder-joint_p" actuator="left-back-shoulder-joint" />
+    <actuatorvel name="left-back-shoulder-joint_v" actuator="left-back-shoulder-joint" />
+    <actuatorfrc name="left-back-shoulder-joint_f" actuator="left-back-shoulder-joint" noise="0.001" />
+    <actuatorpos name="left-back-knee-joint_p" actuator="left-back-knee-joint" />
+    <actuatorvel name="left-back-knee-joint_v" actuator="left-back-knee-joint" />
+    <actuatorfrc name="left-back-knee-joint_f" actuator="left-back-knee-joint" noise="0.001" />
     <actuatorpos name="right-back-shoulder-joint_p" actuator="right-back-shoulder-joint" />
     <actuatorvel name="right-back-shoulder-joint_v" actuator="right-back-shoulder-joint" />
     <actuatorfrc name="right-back-shoulder-joint_f" actuator="right-back-shoulder-joint" noise="0.001" />

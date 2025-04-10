@@ -58,6 +58,60 @@ class PID_Controller:
             self.imu_gyro_address : self.imu_gyro_address + self.imu_gyro_dim
         ]
         return orientation.copy(), gyro.copy()
+    
+    def track_pose_sequence(self, pose_sequence, hold_time, dt, kp, ki, kd, viewer, clipped_control=False, limits=[-1, 1]):
+        """
+        Execute a series of joint angle poses, holding each for a duration using PID control.
+
+        Args:
+            pose_sequence (list of lists): Each sublist is a set of 8 joint angles (in degrees).
+            hold_time (float): Time in seconds to hold each pose.
+            dt (float): Simulation timestep.
+            kp, ki, kd (float): PID gains.
+            viewer: mujoco viewer object.
+            clipped_control (bool): Whether to clip the PID output.
+            limits (list): Control limits [min, max] if clipping is used.
+        """
+        actuator_map = {
+            0: "left-front-shoulder-joint",
+            1: "left-front-knee-joint",
+            2: "left-back-shoulder-joint",
+            3: "left-back-knee-joint",
+            4: "right-back-shoulder-joint",
+            5: "right-back-knee-joint",
+            6: "right-front-shoulder-joint",
+            7: "right-front-knee-joint",
+        }
+        joint_to_qpos = {
+            name: self.model.jnt_qposadr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)]
+            for name in self.actuator_names
+        }
+        actuator_to_ctrl = {name: i for i, name in enumerate(self.actuator_names)}
+        actuator_nums = [0, 1, 2, 3, 4, 5, 6, 7]
+
+        steps_per_pose = int(hold_time / dt)
+        prev_error_vec = np.zeros(8)
+        int_error_vec = np.zeros(8)
+
+        for pose in pose_sequence:
+            desired_angles = np.deg2rad([pose[i] for i in actuator_nums])
+            for _ in range(steps_per_pose):
+                error_vec = desired_angles - np.array([
+                    self.data.qpos[joint_to_qpos[actuator_map[i]]] for i in actuator_nums
+                ])
+                int_error_vec += error_vec * dt
+                de_dt_vec = (error_vec - prev_error_vec) / dt
+
+                for j, i in enumerate(actuator_nums):
+                    ctrl = kp * error_vec[j] + ki * int_error_vec[j] + kd * de_dt_vec[j]
+                    if clipped_control:
+                        ctrl = np.clip(ctrl, limits[0], limits[1])
+                    self.data.ctrl[actuator_to_ctrl[actuator_map[i]]] = ctrl
+                    prev_error_vec[j] = error_vec[j]
+
+                mujoco.mj_step(self.model, self.data)
+                viewer.sync()
+
 
 
     def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):

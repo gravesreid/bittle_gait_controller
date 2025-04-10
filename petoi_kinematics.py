@@ -1,8 +1,6 @@
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from sympy import beta
 
 class PetoiKinematics:
     def __init__(self, render_mode='3d') -> None:
@@ -22,7 +20,7 @@ class PetoiKinematics:
         self.betas = np.zeros([4]) # knee angles
         self.gamma = np.array([0.]) # body angles
         self.gamma_granularity = np.deg2rad(2.) # increase/decrease body angle (roughly) 2deg each time
-        self.h = np.array([0.]) # body vertial shift
+        self.h = np.array([0.]) # body vertical shift
         self.h_granularity = 0.1 # increase/decrease body height (roughly) 0.3cm each time
         self.T01_front = None
         self.T01_back = None
@@ -32,12 +30,12 @@ class PetoiKinematics:
         """ Plotting initialization """
         self.render_mode = render_mode
         if self.render_mode == '3d':
-            self.fig = plt.figure()
+            self.fig = plt.figure(figsize=(10, 6))
             self.ax = self.fig.add_subplot(111, projection='3d')
             self.ax.set_box_aspect([1,1,0.5])
             self.ax.set_aspect('auto')
         elif self.render_mode == '2d':
-            self.fig, self.ax = plt.subplots(1,1)
+            self.fig, self.ax = plt.subplots(1,1, figsize=(10, 6))
         else:
             self.fig, self.ax = None, None
 
@@ -136,7 +134,7 @@ class PetoiKinematics:
                 ) 
             else:
                 pass
-        # plot body
+                
         """ plot body
         In the 1st version of the code, this comes before the leg plotting, 
         but then legs will cover the plot of body, so I put this after the leg plotting
@@ -169,7 +167,7 @@ class PetoiKinematics:
                 np.array([self.T01_front[1,2], self.T01_back[1,2]]),
                 'b-', linewidth=3
             )
-            self.ax.scatter(0,0) 
+            self.ax.scatter(0, 0) 
         
         else:
             pass
@@ -187,24 +185,24 @@ class PetoiKinematics:
             self.ax.set_xlim([-10, 10])
             self.ax.set_ylim([-9, 5])
             self.ax.set_xlabel('X')
-            self.ax.set_ylabel('Y')
+            self.ax.set_ylabel('Z')
             self.ax.set_aspect("equal")
+            self.ax.set_title("Robot Leg Configuration")
             plt.pause(0.001)
     
-    def leg_ik(self, xz:np.array, y_included=False):
+    def leg_ik(self, xz):
         """
-        compute the inverse kinematics for all 4 legs
-        :param xz:
-            np.array with shape [4,2]
-            each row is the xz coordinate of the end effector wrt the body frame
-        :return
+        Compute the inverse kinematics for all 4 legs
+        
+        Args:
+            xz: np.array with shape [4,2]
+                each row is the xz coordinate of the end effector wrt the body frame
+                
+        Returns:
             alphas: shoulder angles, np.array with shape [4,]
             betas: knee angles, np.array with shape [4,]
         """
-        if not y_included:
-            xz0 = np.concatenate([xz, np.ones([4, 1])], axis=1) # [4, 3]
-        else:
-            xz0 = xz.copy()
+        xz0 = np.concatenate([xz, np.ones([4, 1])], axis=1) # [4, 3]
         xz0[:,1] -= self.h[0]
         alphas = []
         betas = []
@@ -223,33 +221,80 @@ class PetoiKinematics:
             betas.append(np.pi/2 - beta_tilde)
 
         return np.array(alphas), np.array(betas)
-
-
-
-
+    
+    def visualize_gait(self, gait_pattern, delay=0.5):
+        """
+        Visualize a gait pattern
+        
+        Args:
+            gait_pattern: Array of shape [num_frames, 4, 2] for multi-frame gait
+                          or [4, 2] for single frame pose
+            delay: Delay between frames in seconds
+        """
+        # Ensure gait_pattern has the correct dimensions
+        if gait_pattern.ndim == 2 and gait_pattern.shape == (4, 2):
+            # Single frame pose - reshape to add frame dimension
+            gait_pattern = gait_pattern.reshape(1, 4, 2)
+        
+        num_frames = gait_pattern.shape[0]
+        
+        try:
+            for i in range(num_frames):
+                print(f"Frame {i+1}/{num_frames}")
+                alphas, betas = self.leg_ik(gait_pattern[i])
+                print("Shoulder angles:", alphas)
+                print("Knee angles:", betas)
+                self.render(alphas, betas)
+                plt.pause(delay)
+                
+            # Keep the last frame visible
+            plt.show()
+        except KeyboardInterrupt:
+            print("Visualization interrupted")
+        
+    
+# Example usage
 if __name__ == '__main__':
+    dog = PetoiKinematics(render_mode='3d')
+    
+    # Define example gaits
     standing_gait = np.array([
         [-5., -5],
         [5, -5],
         [5, -5],
         [-5, -5]
     ])
-
-    standing_gait = np.array(
-        [[ 0.05024405 -0.04199575]
-    [-0.05014449 -0.04199698]
-    [ 0.08252691 -0.12852691],
-    [-0.08242691 -0.12852691]]
-    )
-    dog = PetoiKinematics(render_mode='3d')
+    
+    stepping_gait = np.array([
+        # frame 0
+        [
+            [-5, -5],   [5, -6],    [5, -5],    [-5, -6]
+        ],
+        # frame 1
+        [
+            [-5, -5.5], [5, -5.5],  [5, -5.5],  [-5, -5.5] 
+        ],
+        # frame 2
+        [
+            [-5, -6],   [5, -5],    [5, -6],    [-5, -5]
+        ],
+        # frame 3
+        [
+            [-5, -5.5], [5, -5.5],  [5, -5.5],  [-5, -5.5] 
+        ]
+    ])
+    
     try:
-        while plt.fignum_exists(dog.fig.number):  # Check if the figure window is still open
-            alphas, betas = dog.leg_ik(standing_gait)
-            dog.render(alphas, betas)
-            dog.update_gamma_h()
-            print(np.rad2deg(alphas))
-            print(np.rad2deg(betas))
-            print()
+        print("Displaying standing gait")
+        alphas, betas = dog.leg_ik(standing_gait)
+        print("Shoulder angles:", alphas)
+        print("Knee angles:", betas)
+        dog.render(alphas, betas)
+        plt.pause(2)
+        
+        print("Displaying stepping gait")
+        dog.visualize_gait(stepping_gait, delay=1.0)
+        
     except KeyboardInterrupt:
         print("Exiting gracefully...")
     finally:
