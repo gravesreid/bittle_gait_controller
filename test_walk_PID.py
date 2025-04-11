@@ -13,11 +13,11 @@ from PID_Controller import PID_Controller
 
 pid_controller = PID_Controller("urdf/bittle.xml")
 
-kp = 6e4
-ki = 5e2
-kd = 5e1
+kp = 1e2
+ki = 5e-1
+kd = 5e-1
 dt = 1e-3
-num_timesteps = int(1e4)
+num_timesteps = int(2e4)
 with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as viewer:
     if os.name == 'nt':
         import ctypes
@@ -28,4 +28,4 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
     print("Walk Forward")
     pid_controller.execute(wkf,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty = True)
     print("Walk Backward")
-    pid_controller.execute(bk,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty=True)
+    pid_controller.execute(bk,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty= False)

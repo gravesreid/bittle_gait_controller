@@ -50,14 +50,6 @@ class PID_Controller:
         print("Actuator to qpos mapping:", self.actuator_to_qpos)
         print("Actuator to qvel mapping:", self.actuator_to_qvel)
 
-    def get_imu_readings(self):
-        orientation = self.data.sensordata[
-            self.imu_orientation_address : self.imu_orientation_address + self.imu_orientation_dim
-        ]
-        gyro = self.data.sensordata[
-            self.imu_gyro_address : self.imu_gyro_address + self.imu_gyro_dim
-        ]
-        return orientation.copy(), gyro.copy()
 
 
     def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
@@ -93,10 +85,6 @@ class PID_Controller:
         for i in range(num_timesteps):
             
             desired_angles = np.array([np.deg2rad(behavior[index][num]) for num in actuator_nums])
-
-            orientation, gyro = self.get_imu_readings()
-            print("Orientation:", orientation)
-            print("Gyro:", gyro)
             
             # Calculate errors
             error_vec = desired_angles - np.array([self.data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
@@ -110,6 +98,7 @@ class PID_Controller:
                 int_e = int_error_vec[j]
 
                 ctrl = kp*e + ki*int_e + kd*de_dt
+                print("Control signal:", ctrl)
 
                 # PID control with clipping
                 if clipped_control == True:
