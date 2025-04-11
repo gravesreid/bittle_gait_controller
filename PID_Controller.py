@@ -164,6 +164,7 @@ class PID_Controller:
                 int_e = int_error_vec[j]
 
                 ctrl = kp*e + ki*int_e + kd*de_dt
+                print("Control signal:", ctrl)
 
                 # PID control with clipping
                 if clipped_control == True:
