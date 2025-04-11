@@ -1,3 +1,7 @@
+
+## Change MPC formulation to use torques, change torque to theta with fixed KP
+## Refer to: https://chatgpt.com/c/67f808c6-9bd0-8008-a2e0-ce2bf9a0b5ff
+
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -9,7 +13,7 @@ import os
 import tinympc as MPC
 import casadi as cs
 from PID_Controller import PID_Controller
-from skills import bk
+from skills import bk, balance, wkf
 from petoi_kinematics import PetoiKinematics
 
 # Initialize components
@@ -17,7 +21,7 @@ petoi = PetoiKinematics(render_mode=None)
 pid_controller = PID_Controller("urdf/bittle.xml")
 
 # MPC Parameters
-N = 10          # Prediction horizon
+N = 10        # Prediction horizon
 mpc_dt = 0.1    # MPC timestep (100ms)
 sim_dt = 0.001  # Simulation timestep (1ms)
 steps_per_mpc_step = int(mpc_dt / sim_dt)  # 100 steps
@@ -25,26 +29,43 @@ steps_per_mpc_step = int(mpc_dt / sim_dt)  # 100 steps
 # State and control dimensions
 # Your model has 7 body pos/quat + 8 joint angles = 15 qpos
 # And 6 body vel/angvel + 8 joint velocities = 14 qvel
-nx = 15 + 14  # 29 total states
+nx = 6  # 29 total states
 nu = 8        # 8 joint torques
 def joint_angles_to_com(joint_angles_rad):
     """
-    Convert 8 joint angles into CoM state using PetoiKinematics.
-    Args:
-        joint_angles_rad: array of shape (8,) - [l_b_sh, l_b_kn, l_f_sh, l_f_kn, r_b_sh, r_b_kn, r_f_sh, r_f_kn]
+    Uses joint angles to estimate the CoM via PetoiKinematics and validates with leg_ik.
     Returns:
-        com_state: array of shape (3,) - [x, z, yaw] CoM position and orientation (yaw)
+        np.array([x, z, yaw]) - estimated center of mass state
     """
     # Split into shoulder and knee angles
     alphas = joint_angles_rad[[0, 2, 4, 6]]
     betas  = joint_angles_rad[[1, 3, 5, 7]]
 
-    # Update the kinematic model
+    # Update kinematic model
     petoi.alphas = alphas
     petoi.betas = betas
-    petoi.update_gamma_h()  # refresh transforms
+    petoi.update_gamma_h()
 
-    # Compute CoM x, z from midpoint of front and back body
+    # Get estimated foot positions using current joint angles (forward kinematics)
+    foot_positions = np.zeros((4, 2))
+    for i in range(4):
+        T = petoi.T01_front if i in [0, 3] else petoi.T01_back
+        alpha = alphas[i]
+        beta = betas[i]
+        L = petoi.leg_length + petoi.foot_length * np.sin(beta)
+        x = L * np.sin(alpha)
+        z = -L * np.cos(alpha)
+        foot_world = T @ np.array([x, z, 1])
+        foot_positions[i] = foot_world[:2]
+
+    # Use inverse kinematics to get back the joint angles from foot positions (optional validation)
+    alphas_ik, betas_ik = petoi.leg_ik(foot_positions)
+
+    # (Optional: Check closeness to original angles if needed for debug)
+    # print("IK alpha error:", np.rad2deg(alphas - alphas_ik))
+    # print("IK beta error:", np.rad2deg(betas - betas_ik))
+
+    # Compute CoM x, z from midpoint of front and back frames
     x = (petoi.T01_front[0, 2] + petoi.T01_back[0, 2]) / 2
     z = (petoi.T01_front[1, 2] + petoi.T01_back[1, 2]) / 2
     yaw = petoi.gamma[0] if petoi.gamma.size > 0 else 0.0
@@ -60,17 +81,30 @@ mpc.N = N
 mpc.nx = nx
 mpc.nu = nu
 
-# Weight matrices - adjust these based on your priorities
-Q = np.diag([1e3, 1e3, 1e3,       # Position (x,y,z)
-                1e2, 1e2, 1e2, 1e2,  # Orientation (quaternion)
-                1e1, 1e1, 1e1,       # Linear velocity
-                1e1, 1e1, 1e1,       # Angular velocity
-                1e2, 1e2, 1e2, 1e2,  # Joint angles (8)
-                1e2, 1e2, 1e2, 1e2,
-                1e1, 1e1, 1e1, 1e1,  # Joint velocities (8)
-                1e1, 1e1, 1e1, 1e1])
+Q = np.diag([1e4, 1e8, 1e1,   # [x, z, yaw]
+             1e3, 1e3, 1e2])  # [dx, dz, dyaw]
                 
-R = np.diag([1e-1]*8)  # Control effort
+
+# Simple knob: tracking_weight scales how much MPC tries to match joint angles
+tracking_weight = 1e-8  # try 1e3 or 1e4 if needed
+
+shoulder_weight = 1.0
+knee_weight = 0.01  # knees are more influential — you can upweight them
+
+weights = np.array([
+    tracking_weight * shoulder_weight,  # left-back-shoulder
+    tracking_weight * knee_weight,      # left-back-knee
+    tracking_weight * shoulder_weight,  # left-front-shoulder
+    tracking_weight * knee_weight,      # left-front-knee
+    tracking_weight * shoulder_weight,  # right-back-shoulder
+    tracking_weight * knee_weight,      # right-back-knee
+    tracking_weight * shoulder_weight,  # right-front-shoulder
+    tracking_weight * knee_weight       # right-front-knee
+])
+
+R = np.diag(weights)
+mpc.R = R
+
 Qf = 10 * Q            # Terminal cost
 
 mpc.Q = Q
@@ -154,28 +188,37 @@ def create_dynamics():
             foot_pos = cs.mtimes(petoi.T01_back, cs.vertcat(x_foot, z_foot, 1))
         
         foot_positions.append(foot_pos[:2])
-
+    # Dynamics: CoM + yaw
+    total_torque = 0.0
+    com_pos = x[0:2]  # [x, z]
     # Ground reaction force model
     m = 1.0  # mass
     g = 9.81
     sum_f = cs.MX.zeros(2)
     for fp in foot_positions:
-        f_x = -10.0 * (fp[0] - x[0]) - 1.0 * x[3]  # PD controller on x
-        f_z = -10.0 * (fp[1] - x[1]) - 1.0 * x[4] + m*g  # PD controller + gravity
-        sum_f += cs.vertcat(f_x, f_z)
+        lever_arm = fp - com_pos
+        force = cs.vertcat(
+            -10.0 * (fp[0] - x[0]) - 1.0 * x[3],     # fx
+            -10.0 * (fp[1] - x[1]) - 1.0 * x[4] + m*g  # fz
+        )
+        # Torque about the yaw axis (cross product in 2D: r × F = rx*fz - rz*fx)
+        torque = lever_arm[0] * force[1] - lever_arm[1] * force[0]
+        total_torque += torque
 
+    I = 0.05  # Moment of inertia about yaw axis (tune this)
+    yaw_acc = total_torque / I
     # Dynamics: CoM + yaw
     dxdt = cs.vertcat(
         x[3], x[4], x[5],       # positions → velocities
         sum_f[0]/m,             # linear x acceleration
         sum_f[1]/m,             # linear z acceleration
-        0.0                     # simple model: yaw acceleration = 0
+        yaw_acc                     # simple model: yaw acceleration = 0
     )
 
     return cs.Function('f', [x, u], [dxdt])
 
 # Convert 'bk' skill to reference trajectory
-bk_ref = np.deg2rad(np.array(bk))
+bk_ref = np.deg2rad(np.array(balance))
 reference_traj = bk_ref[:, [3,7,0,4,2,6,1,5]]  # Reorder to match actuator mapping
 if len(reference_traj) < N:
     reference_traj = np.tile(reference_traj, (N//len(reference_traj)+1, 1))[:N]
@@ -244,13 +287,17 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
     actuator_nums = [3,7,0,4,2,6,1,5]  # Mapping to joint order in XML
     f = create_dynamics()
     A_func, B_func = linearize_symbolic_dynamics(f)
-    for step in range(int(1e8)):
+    for step in range(int(1e6)):
         current_time = step * sim_dt
         
         if step % steps_per_mpc_step == 0:  # Run MPC at the specified rate
-            # Get current state from simulation
-            state[:15] = pid_controller.data.qpos[:]  # pos/quat + joint angles
-            state[15:] = pid_controller.data.qvel[:]  # vel/angvel + joint velocities
+            state = np.zeros(6)
+            state[0] = pid_controller.data.qpos[0]  # x
+            state[1] = pid_controller.data.qpos[2]  # z
+            state[2] = pid_controller.data.qpos[6]  # yaw (assuming placeholder from quaternion)
+            state[3] = pid_controller.data.qvel[0]  # dx
+            state[4] = pid_controller.data.qvel[2]  # dz
+            state[5] = pid_controller.data.qvel[5]  # dyaw
             
             # Total length of trajectory
             T_ref = len(reference_traj)
@@ -270,96 +317,74 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
             # Create reference state trajectory (focus on joint angles)
             x_ref = np.zeros((nx, N))
             state_ref = np.array([
-                joint_angles_to_com(ref_window[k % len(ref_window)])
-                for k in range(N)
+                joint_angles_to_com(ref_window[k % len(ref_window)]) for k in range(N)
             ]).T  # shape (3, N)
 
-            x_ref = np.zeros((nx, N))
+            x_ref = np.zeros((6, N))
             for k in range(N):
                 x_ref[0, k] = state_ref[0, k]  # x
-                x_ref[2, k] = state_ref[1, k]  # z
-                x_ref[6, k] = state_ref[2, k]  # yaw
-                x_ref[7:15, k] = ref_window[k % len(ref_window)]  # joint angles
+                x_ref[1, k] = state_ref[1, k]  # z
+                x_ref[2, k] = state_ref[2, k]  # yaw
+                # [3,4,5] velocities assumed zero or can be estimated
             # Create reference control trajectory
             u_ref = np.zeros((nu, N-1))
             for k in range(N-1):
                 u_ref[:, k] = ref_window[k % len(ref_window), :]
             
-            # Compute Jacobians numerically for current state
-            eps = 1e-6
-            A = np.zeros((nx, nx))
-            B = np.zeros((nx, nu))
-            
-            # Current control (zero for linearization)
-            u0 = np.zeros(nu)
-            
+
 
             # Evaluate around some state and control
             x0 = np.zeros(6)
-            u0 = np.zeros(8)
+            u0 = u_ref[0]
+            # Grab current state
+            qpos = pid_controller.data.qpos
+            qvel = pid_controller.data.qvel
 
+            u0 = qpos[7:15]   # joint angles as reference input
             # Assume: symbolic A is (6x6), B is (6x8)
-            A_sym = np.array(A_func(x0, u0))  # (6, 6)
-            B_sym = np.array(B_func(x0, u0))  # (6, 8)
-
-            # Pad to 29x29 and 29x8
-            A_full = np.zeros((29, 29))
-            B_full = np.zeros((29, 8))
-
-            # Embed symbolic dynamics into appropriate slots
-            # Let's say symbolic dynamics models [x, z, yaw, dx, dz, dyaw] = indices 0, 2, 6, 15, 16, 21
-            state_idx = [0, 2, 6, 15, 16, 21]
-
-            for i, row in enumerate(state_idx):
-                for j, col in enumerate(state_idx):
-                    A_full[row, col] = A_sym[i, j]
-                for j in range(8):
-                    B_full[row, j] = B_sym[i, j]
-            # A, B = linearize_dynamics(
-            #     lambda x, u: mujoco_dynamics(pid_controller, x, u),
-            #     state,
-            #     u0,
-            #     nx,
-            #     nu
-            # )
+            A_sym = np.array(A_func(state, u0))  # (6, 6)
+            B_sym = np.array(B_func(state, u0))  # (6, 8)
+          
             
             # Setup MPC with current linearization
             if step == 0:
-                mpc.setup(A_full, B_full, Q, R, N)
+                mpc.setup(A_sym, B_sym, Q, R, N)
             else:
-                mpc.A = A_full
-                mpc.B = B_full
+                mpc.A = A_sym
+                mpc.B = B_sym
                 mpc.R = R
                 mpc.Q = Q
-            # Add joint angle constraints
-            x_min = -np.inf * np.ones(nx)
-            x_max = np.inf * np.ones(nx)
-            x_min[7:15] = joint_limits[:, 0]
-            x_max[7:15] = joint_limits[:, 1]
+            # Set joint angle limits as control bounds
+            mpc.u_min = joint_limits[:, 0]  # lower bounds in radians
+            mpc.u_max = joint_limits[:, 1]  # upper bounds in radians
 
-            mpc.x_min = x_min
-            mpc.x_max = x_max
+            # mpc.x_min = x_min
+            # mpc.x_max = x_max
 
             # Solve MPC
             mpc.set_x_ref(x_ref)
             mpc.set_u_ref(u_ref)
             mpc.set_x0(state)
             u_opt = mpc.solve()
-            kp = 1e5
-            ki = 50
-            kd = 100
-            dt = 0.001
-            print(u_opt["controls"])
+            kp = 6e4
+            ki = 5e2
+            kd = 5e1
+            dt = 1e-3
+            
             copy = u_opt["controls"]
             u_opt = u_opt["controls"].reshape(1, -1)
-    
+            print("MPC angles being sent (degrees):")
+            print(np.rad2deg(u_opt))
+            print("Example wkf step:", np.rad2deg(u_ref[0]))
+            print("Example u_opt step (degrees):", np.rad2deg(u_opt[:8]))
             # Now it's safe to convert to degrees if needed
             behavior = np.rad2deg(u_opt)
+           
             pid_controller.execute(
-                behavior=u_opt,
-                num_timesteps=len(u_opt),
+                behavior=behavior,
+                num_timesteps=100,
                 viewer=viewer,
-                dt=sim_dt,
+                dt=dt,
                 kp=kp,
                 ki=ki,
                 kd=kd,
@@ -391,8 +416,31 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
         # mpc_history['actual_com'].append(pid_controller.data.qpos[:3].copy())  # or .tolist()
         # mpc_history['control_signals'].append(pid_controller.data.ctrl.copy())
 
+# Convert to degrees for visualization
+u_ref_deg = np.rad2deg(u_ref.T)    # Shape (N-1, 8)
+u_opt_deg = np.rad2deg(u_opt)      # Shape (N-1, 8)
 
+fig, axs = plt.subplots(4, 2, figsize=(15, 10))
+axs = axs.flatten()
+joint_labels = [
+    "left-back-shoulder", "left-back-knee",
+    "left-front-shoulder", "left-front-knee",
+    "right-back-shoulder", "right-back-knee",
+    "right-front-shoulder", "right-front-knee"
+]
 
+for i in range(8):
+    axs[i].plot(u_ref_deg[:, i], 'b--', label='u_ref (MPC input)')
+    axs[i].plot(u_opt_deg[:, i], 'g-', label='u_opt (optimal control)')
+    axs[i].set_title(joint_labels[i])
+    axs[i].set_ylabel('Angle (deg)')
+    axs[i].set_xlabel('MPC Horizon Step')
+    axs[i].legend()
+    axs[i].grid(True)
+
+plt.tight_layout()
+plt.show()
+print(T_ref)
 # Joint names and colors
 joint_names = ['left-back-shoulder', 'left-back-knee', 
                'left-front-shoulder', 'left-front-knee',
@@ -401,26 +449,34 @@ joint_names = ['left-back-shoulder', 'left-back-knee',
 colors = plt.cm.viridis(np.linspace(0, 1, 8))
 com_labels = ['X', 'Z', 'Yaw']
 
-# 1. Joint Angle Comparison
-plt.figure(figsize=(12, 6))
+# Joint Angles with Limits - Subplots
+fig, axes = plt.subplots(4, 2, figsize=(14, 10), sharex=True)
+axes = axes.flatten()
+
 for j in range(8):
-    plt.plot(
-        mpc_history['timesteps'],
-        np.rad2deg([angles[j] for angles in mpc_history['planned_angles']]),
-        color=colors[j], linestyle='-', label=f'Planned {joint_names[j]}'
-    )
-    plt.plot(
-        mpc_history['timesteps'],
-        np.rad2deg([angles[j] for angles in mpc_history['actual_angles']]),
-        color=colors[j], linestyle='--', label=f'Actual {joint_names[j]}'
-    )
-plt.title('Joint Angles: Planned vs Actual (deg)')
-plt.xlabel('Time (s)')
-plt.ylabel('Angle (deg)')
-plt.legend(ncol=2)
-plt.grid(True)
-plt.tight_layout()
-plt.savefig('joint_angles.png')
+    ax = axes[j]
+    planned = np.rad2deg([angles[j] for angles in mpc_history['planned_angles']])
+    actual = np.rad2deg([angles[j] for angles in mpc_history['actual_angles']])
+    
+    ax.plot(mpc_history['timesteps'], planned, color=colors[j], linestyle='-', label='Planned')
+    ax.plot(mpc_history['timesteps'], actual, color=colors[j], linestyle='--', label='Actual')
+    
+    # Joint limits
+    min_limit = np.rad2deg(joint_limits[j, 0])
+    max_limit = np.rad2deg(joint_limits[j, 1])
+    ax.axhline(min_limit, color='gray', linestyle=':', linewidth=1, alpha=0.6)
+    ax.axhline(max_limit, color='gray', linestyle=':', linewidth=1, alpha=0.6)
+    
+    ax.set_title(joint_names[j])
+    ax.set_ylabel('Angle (deg)')
+    ax.grid(True)
+    if j >= 6:
+        ax.set_xlabel('Time (s)')
+    ax.legend(loc='upper right')
+
+plt.suptitle('Joint Angles: Planned vs Actual with Limits', fontsize=16)
+plt.tight_layout(rect=[0, 0, 1, 0.97])
+plt.savefig('joint_angles_subplots.png')
 plt.show()
 
 # 2. Center of Mass (CoM) Trajectory
