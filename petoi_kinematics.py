@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from sympy import beta
-
+import casadi as cs
 class PetoiKinematics:
     def __init__(self, render_mode='3d') -> None:
         
@@ -12,6 +12,9 @@ class PetoiKinematics:
         self.body_width = self.b = 10 # cm
         self.leg_length = self.c = 4.6 # cm
         self.foot_length = self.d = 4.6 # cm
+        self.upper_length = 0.1  # Shoulder to knee
+        self.lower_length = 0.12  # Knee to foot
+        self.shoulder_offset = 0.05  # Front shoulder x-offset
 
         """ Dynamic parameters 
         Note that we make body angle and body height arrays to enable a smooth transition
@@ -239,6 +242,19 @@ class PetoiKinematics:
             betas.append(np.pi/2 - beta_tilde)
 
         return np.array(alphas), np.array(betas)
+    def forward_kinematics_front(self, leg_angles):
+        """Returns foot position in body frame as 2D vector [x, z]"""
+        alpha, beta = leg_angles[0], leg_angles[1]
+        x = self.upper_length*cs.sin(alpha) + self.lower_length*cs.sin(alpha + beta)
+        z = -self.upper_length*cs.cos(alpha) - self.lower_length*cs.cos(alpha + beta)
+        return cs.vertcat(x + self.shoulder_offset, z)
+
+    def forward_kinematics_back(self, leg_angles):
+        # Similar implementation for back legs with appropriate offsets
+        alpha, beta = leg_angles[0], leg_angles[1]
+        x = self.upper_length*cs.sin(alpha) + self.lower_length*cs.sin(alpha + beta)
+        z = -self.upper_length*cs.cos(alpha) - self.lower_length*cs.cos(alpha + beta)
+        return cs.vertcat(x - self.shoulder_offset, z)
 
     def leg_fk(self, alphas, betas):
         """
