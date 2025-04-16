@@ -7,47 +7,42 @@ class KinematicsHelper:
     
     def joints_to_com(self, joint_angles_rad):
         """
-        Uses joint angles to estimate the CoM via PetoiKinematics and validates with leg_ik.
+        Uses forward kinematics to compute foot positions and estimate CoM.
         Returns:
             np.array([x, z, yaw]) - estimated center of mass state
         """
-        petoi = self.petoi
-        # Split into shoulder and knee angles
-        alphas = joint_angles_rad[[0, 2, 4, 6]]
-        betas  = joint_angles_rad[[1, 3, 5, 7]]
-
-        # Update kinematic model
-        petoi.alphas = alphas
-        petoi.betas = betas
-        petoi.update_gamma_h()
-
-        # Get estimated foot positions using current joint angles (forward kinematics)
-        foot_positions = np.zeros((4, 2))
-        for i in range(4):
-            T = petoi.T01_front if i in [0, 3] else petoi.T01_back
-            alpha = alphas[i]
-            beta = betas[i]
-            L = petoi.leg_length + petoi.foot_length * np.sin(beta)
-            x = L * np.sin(alpha)
-            z = -L * np.cos(alpha)
-            foot_world = T @ np.array([x, z, 1])
-            foot_positions[i] = foot_world[:2]
-
-        # Use inverse kinematics to get back the joint angles from foot positions (optional validation)
-        alphas_ik, betas_ik = petoi.leg_ik(foot_positions)
-
-        # (Optional: Check closeness to original angles if needed for debug)
-        # print("IK alpha error:", np.rad2deg(alphas - alphas_ik))
-        # print("IK beta error:", np.rad2deg(betas - betas_ik))
-
-        # Compute CoM x, z from midpoint of front and back frames
-        x = (petoi.T01_front[0, 2] + petoi.T01_back[0, 2]) / 2
-        z = (petoi.T01_front[1, 2] + petoi.T01_back[1, 2]) / 2
-        yaw = petoi.gamma[0] if petoi.gamma.size > 0 else 0.0
-
-        return np.array([x, z, yaw])
-# Initialize TinyMPC
-    
-    def calculate_jacobians(self):
-        """Calculate Jacobian matrices if needed"""
-        # Implementation...
+        # Split joint angles into legs (assuming order: FL, FR, BL, BR)
+        leg_angles = joint_angles_rad.reshape(4, 2)
+        
+        # Compute foot positions in body frame using forward kinematics
+        foot_positions = np.zeros((4, 2))  # [x,z] for each foot
+        
+        # Front left leg (index 0)
+        fl_pos = self.petoi.forward_kinematics_front(leg_angles[0])
+        foot_positions[0] = [float(fl_pos[0]), float(fl_pos[1])]
+        
+        # Front right leg (index 1)
+        fr_pos = self.petoi.forward_kinematics_front(leg_angles[1])
+        foot_positions[1] = [float(fr_pos[0]), float(fr_pos[1])]
+        
+        # Back left leg (index 2)
+        bl_pos = self.petoi.forward_kinematics_back(leg_angles[2])
+        foot_positions[2] = [float(bl_pos[0]), float(bl_pos[1])]
+        
+        # Back right leg (index 3)
+        br_pos = self.petoi.forward_kinematics_back(leg_angles[3])
+        foot_positions[3] = [float(br_pos[0]), float(br_pos[1])]
+        
+        # Simple CoM estimation:
+        # 1. Average of all foot positions (assuming legs bear equal weight)
+        # 2. Add body offset (assuming body CoM is at geometric center)
+        com_x = np.mean(foot_positions[:, 0])
+        com_z = np.mean(foot_positions[:, 1])
+        
+        # Add body height offset (since foot positions are relative to shoulder)
+        com_z += self.petoi.h[0] if len(self.petoi.h) > 0 else 0.0
+        
+        # Body yaw angle
+        yaw = self.petoi.gamma[0] if len(self.petoi.gamma) > 0 else 0.0
+        
+        return np.array([com_x, com_z, yaw])

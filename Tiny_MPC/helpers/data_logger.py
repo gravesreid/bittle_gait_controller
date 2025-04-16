@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from .mpc_config import MPCConfig
+from .kinematics import KinematicsHelper
+from .mpc_config import MPCConfig 
 class DataLogger:
     def __init__(self):
         self.history = {
@@ -9,13 +10,16 @@ class DataLogger:
             'actual_angles': [],
             'planned_com': [],
             'actual_com': [],
-            'control_signals': []
+            'control_signals': [],
+            'mpc_solutions': [],  # New field for full MPC solutions
+            'reference_angles': []  # <-- Add this
         }
+        
     
     def log_data(self, timestep, 
                 planned_angles, planned_com,
                 actual_angles, actual_com,
-                controls):
+                controls, reference_angles, log_file):
         """Store all relevant data from one timestep"""
         self.history['timesteps'].append(timestep)
         self.history['planned_angles'].append(np.array(planned_angles))
@@ -23,14 +27,33 @@ class DataLogger:
         self.history['actual_angles'].append(np.array(actual_angles))
         self.history['actual_com'].append(np.array(actual_com))
         self.history['control_signals'].append(np.array(controls))
-    
-    def plot_results(self, u_ref,u_opt, mpc_history):
-        """Generate all plots"""
-        joint_limits = MPCConfig.joint_limits
-        # Convert to degrees for visualization
-        u_ref_deg = np.rad2deg(u_ref.T)    # Shape (N-1, 8)
-        u_opt_deg = np.rad2deg(u_opt)      # Shape (N-1, 8)
+        self.history['reference_angles'].append(np.array(reference_angles))  # <-- Log this too
+         # Write to log file
+        log_entry = (
+            f"\n[Timestep {timestep:.3f}]\n"
+            f"Planned Angles: {np.rad2deg(planned_angles).round(2)}\n"
+            f"Actual Angles:  {np.rad2deg(actual_angles).round(2)}\n"
+            f"Planned COM:    X={planned_com[0]:.4f}, Z={planned_com[1]:.4f}, Yaw={planned_com[2]:.4f}\n"
+            f"Actual COM:     X={actual_com[0]:.4f}, Z={actual_com[1]:.4f}, Yaw={actual_com[2]:.4f}\n"
+            f"Controls:       {controls.round(4)}\n"
+            f"Reference Angles: {np.rad2deg(reference_angles).round(2)}\n"
+        )
+        log_file.write(log_entry)
 
+    
+    def plot_results(self, u_ref, mpc_history, reference_angles):
+        """Generate all plots"""
+        mpc_config = MPCConfig(N=10)
+        joint_limits = mpc_config.joint_limits
+        kinematics = KinematicsHelper()
+        reference_com = [kinematics.joints_to_com(joint) for joint in reference_angles]
+        # Convert reference trajectory
+        u_ref_deg = np.rad2deg(u_ref.T)  # Shape (N, 8)
+        
+        # Convert logged controls (use control_signals instead of mpc_solutions)
+        controls = np.array(mpc_history['control_signals'])  # (T, 8)
+        
+        # Plotting code
         fig, axs = plt.subplots(4, 2, figsize=(15, 10))
         axs = axs.flatten()
         joint_labels = [
@@ -41,11 +64,14 @@ class DataLogger:
         ]
 
         for i in range(8):
-            axs[i].plot(u_ref_deg[:, i], 'b--', label='u_ref (MPC input)')
-            axs[i].plot(u_opt_deg[:, i], 'g-', label='u_opt (optimal control)')
+            # Plot reference (first N steps)
+            axs[i].plot(u_ref_deg[:len(controls), i], 'b--', label='Reference')
+            
+            # Plot actual controls
+            axs[i].plot(np.rad2deg(controls[:, i]), 'g-', label='Actual')
+            
             axs[i].set_title(joint_labels[i])
             axs[i].set_ylabel('Angle (deg)')
-            axs[i].set_xlabel('MPC Horizon Step')
             axs[i].legend()
             axs[i].grid(True)
 
@@ -66,43 +92,48 @@ class DataLogger:
 
         for j in range(8):
             ax = axes[j]
+
+            # Get actual and planned for joint j
             planned = np.rad2deg([angles[j] for angles in mpc_history['planned_angles']])
             actual = np.rad2deg([angles[j] for angles in mpc_history['actual_angles']])
+
+            # Try to get reference (safely handles shorter reference arrays)
+            if len(reference_angles) >= len(mpc_history['timesteps']):
+                ref = np.rad2deg([angles[j] for angles in reference_angles[:len(mpc_history['timesteps'])]])
+            else:
+                ref = np.rad2deg([angles[j] for angles in reference_angles])
+                last_val = ref[-1]
+                ref = list(ref) + [last_val] * (len(mpc_history['timesteps']) - len(ref))  # pad with last value
             
+            # Now plot all three
+            ax.plot(mpc_history['timesteps'], ref, color='blue', linestyle=':', label='Reference')
             ax.plot(mpc_history['timesteps'], planned, color=colors[j], linestyle='-', label='Planned')
             ax.plot(mpc_history['timesteps'], actual, color=colors[j], linestyle='--', label='Actual')
-            
-            # Joint limits
-            min_limit = np.rad2deg(joint_limits[j, 0])
-            max_limit = np.rad2deg(joint_limits[j, 1])
-            ax.axhline(min_limit, color='gray', linestyle=':', linewidth=1, alpha=0.6)
-            ax.axhline(max_limit, color='gray', linestyle=':', linewidth=1, alpha=0.6)
-            
+
+            ax.set_ylabel("Angle (deg)")
             ax.set_title(joint_names[j])
-            ax.set_ylabel('Angle (deg)')
             ax.grid(True)
-            if j >= 6:
-                ax.set_xlabel('Time (s)')
-            ax.legend(loc='upper right')
+            ax.legend()
 
-        plt.suptitle('Joint Angles: Planned vs Actual with Limits', fontsize=16)
-        plt.tight_layout(rect=[0, 0, 1, 0.97])
-        plt.savefig('joint_angles_subplots.png')
-        plt.show()
+        # Pad reference_com to match timesteps
+        T = len(mpc_history['timesteps'])
+        if len(reference_com) < T:
+            last_val = reference_com[-1]
+            reference_com += [last_val] * (T - len(reference_com))
+        else:
+            reference_com = reference_com[:T]
 
-        # 2. Center of Mass (CoM) Trajectory
-        plt.figure(figsize=(12, 5))
+        # Now plot CoM
+        plt.figure(figsize=(10, 6))
         for i in range(3):
-            plt.plot(
-                mpc_history['timesteps'],
-                [com[i] for com in mpc_history['planned_com']],
-                label=f'Planned {com_labels[i]}'
-            )
-            plt.plot(
-                mpc_history['timesteps'],
-                [com[i] for com in mpc_history['actual_com']],
-                linestyle='--', label=f'Actual {com_labels[i]}'
-            )
+            ref = [com[i] for com in reference_com]
+            planned = [com[i] for com in mpc_history['planned_com']]
+            actual = [com[i] for com in mpc_history['actual_com']]
+            
+            plt.plot(mpc_history['timesteps'], ref, linestyle=':', label=f'Reference {com_labels[i]}')
+            plt.plot(mpc_history['timesteps'], planned, linestyle='-', label=f'Planned {com_labels[i]}')
+            plt.plot(mpc_history['timesteps'], actual, linestyle='--', label=f'Actual {com_labels[i]}')
+
         plt.title('Center of Mass Trajectory')
         plt.xlabel('Time (s)')
         plt.ylabel('Position (m)/Angle (rad)')
