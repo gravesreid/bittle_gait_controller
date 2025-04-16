@@ -16,6 +16,22 @@ class PetoiKinematics:
         self.lower_length = 0.12  # Knee to foot
         self.shoulder_offset = 0.05  # Front shoulder x-offset
 
+        """ Body and link mass """
+        self.leg_mass = 0.006 # kg
+        self.foot_mass = 0.017 # kg
+        self.leg_coms = np.array([
+            [0.0, -0.24575, 0.04372], # FL
+            [0.0, -0.24575, 0.04372], # BL
+            [0.0, 0.24575, 0.0777], # BR
+            [0.0, 0.24575, 0.0777], # FR
+        ])
+        self.foot_coms = np.array([
+            [-0.09232, 0.0, -0.14614], # FL
+            [-0.08998, 0.0, -0.14638], # BL
+            [0.08426, -0.00238, -0.1382], # BR
+            [0.09497, -0.00238, -0.1382], # FR
+        ])
+
         """ Dynamic parameters 
         Note that we make body angle and body height arrays to enable a smooth transition
 
@@ -226,6 +242,7 @@ class PetoiKinematics:
             betas.append(np.pi/2 - beta_tilde)
 
         return np.array(alphas), np.array(betas)
+
     def forward_kinematics_front(self, leg_angles):
         """Returns foot position in body frame as 2D vector [x, z]"""
         alpha, beta = leg_angles[0], leg_angles[1]
@@ -239,6 +256,45 @@ class PetoiKinematics:
         x = self.upper_length*cs.sin(alpha) + self.lower_length*cs.sin(alpha + beta)
         z = -self.upper_length*cs.cos(alpha) - self.lower_length*cs.cos(alpha + beta)
         return cs.vertcat(x - self.shoulder_offset, z)
+    
+    def get_com(self, alphas, betas):
+        """
+        compute center of mass based on joint angles
+        :param alphas:
+            np.array with shape [4,]
+            each row is the angle of the shoulder joint
+        :param betas:
+            np.array with shape [4,]
+            each row is the angle of the knee joint
+        :return
+            com_proj: np.array with shape [3,]
+            each row is the xz coordinate of the center of mass projection on the ground
+        """
+
+        com = np.zeros([3])
+        for i in range(4):
+            robot_frame = np.array([0,0,0])
+            ca, sa = np.cos(alphas[i]), np.sin(alphas[i])
+            cb, sb = np.cos(betas[i]), np.sin(betas[i])
+
+            # Translate foot mass 
+            # from foot frame -> shoulder frame
+            foot_com_wrt_shoulder = self.foot_mass*self.foot_coms[i] @ np.array([
+                [ca, -sa, 0,],
+                [sa,  ca, 0,],
+                [0,    0, 1,],
+            ])
+
+            # Combine foot and shoulder com
+            shoulder_com_wrt_shoulder = self.leg_mass*self.leg_coms[i]
+            leg_com_wrt_shoulder = foot_com_wrt_shoulder + shoulder_com_wrt_shoulder
+
+            # Transform to world frame
+            T01 = self.T01_front if i in [0,3] else self.T01_back
+            leg_com_wrt_world = T01 @ leg_com_wrt_shoulder
+            com += leg_com_wrt_world
+        com /= 4
+
 
 
 

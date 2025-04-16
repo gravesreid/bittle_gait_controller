@@ -325,8 +325,6 @@ class PetoiKinematics:
             com += leg_com_wrt_world
         com /= 4
 
-
-
         
         
 

@@ -16,6 +16,8 @@ class KinematicsHelper:
         
         # Compute foot positions in body frame using forward kinematics
         foot_positions = np.zeros((4, 2))  # [x,z] for each foot
+
+        com = self.petoi.get_com(leg_angles[:,0],leg_angles[:,1])
         
         # Front left leg (index 0)
         fl_pos = self.petoi.forward_kinematics_front(leg_angles[0])
