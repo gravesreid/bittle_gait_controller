@@ -308,6 +308,7 @@ def main():
         print("Usage: python simple_gait_visualizer.py <sequence_file.py> [options]")
         print("Options:")
         print("  --resample <length>: Resample the sequence to a specific length")
+        print("  --match-reference: Resample the sequence to match the reference WKF length (64 points)")
         print("  --save-reference: Save the reference WKF gait to a file")
         return
     
@@ -325,22 +326,40 @@ def main():
         return
     
     # Process options
-    if len(sys.argv) > 2 and sys.argv[2] == "--resample" and len(sys.argv) > 3:
-        # Resample the sequence
-        try:
-            target_length = int(sys.argv[3])
-            resampled = resample_sequence(sequence, target_length)
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "--resample" and len(sys.argv) > 3:
+            # Resample the sequence to specific length
+            try:
+                target_length = int(sys.argv[3])
+                resampled = resample_sequence(sequence, target_length)
+                
+                # Save the resampled sequence
+                output_file = sequence_file.replace(".py", f"_resampled_{target_length}.py")
+                save_sequence_to_py(resampled, output_file, "resampled_sequence")
+                
+                # Compare with reference
+                compare_with_reference(resampled, REFERENCE_WKF, f"Resampled ({target_length} points)")
+                
+                return
+            except ValueError:
+                print(f"Error: Invalid target length: {sys.argv[3]}")
+                return
+        
+        elif sys.argv[2] == "--match-reference":
+            # Resample to match reference length
+            ref_length = len(REFERENCE_WKF)
+            resampled = resample_sequence(sequence, ref_length)
             
             # Save the resampled sequence
-            output_file = sequence_file.replace(".py", f"_resampled_{target_length}.py")
-            save_sequence_to_py(resampled, output_file, "resampled_sequence")
+            output_file = sequence_file.replace(".py", f"_matched_to_reference.py")
+            save_sequence_to_py(resampled, output_file, "wkf_matched_sequence")
+            
+            print(f"Sequence resampled to match reference length ({ref_length} points)")
+            print(f"Saved to: {output_file}")
             
             # Compare with reference
-            compare_with_reference(resampled, REFERENCE_WKF, f"Resampled ({target_length} points)")
+            compare_with_reference(resampled, REFERENCE_WKF, f"Matched to Reference Length")
             
-            return
-        except ValueError:
-            print(f"Error: Invalid target length: {sys.argv[3]}")
             return
     
     # Default: compare the sequence with the reference

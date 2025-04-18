@@ -8,10 +8,10 @@ matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 
 import os
 
-from skills import balance, wkf, bk
+from skills import balance, wkf, bk, test
 from PID_Controller import PID_Controller
 
-pid_controller = PID_Controller("urdf/bittle.xml")
+pid_controller = PID_Controller("urdf/bittle_scaled.xml")
 
 kp = 1e2
 ki = 5e-1
@@ -27,5 +27,5 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
     #execute(balance,num_timesteps,dt, kp,ki,kd, plotty=True)
     print("Walk Forward")
     pid_controller.execute(wkf,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty = True)
-    print("Walk Backward")
-    pid_controller.execute(bk,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty= False)
+    print("test")
+    pid_controller.execute(test,num_timesteps,dt,kp,ki,kd, viewer=viewer, plotty= False)
