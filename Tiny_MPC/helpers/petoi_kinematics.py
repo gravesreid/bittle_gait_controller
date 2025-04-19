@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from sympy import beta
 import casadi as cs
 class PetoiKinematics:
-    def __init__(self, render_mode='3d') -> None:
+    def __init__(self, render_mode='') -> None:
         
         """ Static parameters """
         self.body_length = self.a = .105 # m

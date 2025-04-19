@@ -1,5 +1,6 @@
 import numpy as np
 import mujoco
+import casadi as cs
 from helpers.util import Util
 from helpers.mpc_config import MPCConfig
 from helpers.kinematics import KinematicsHelper
@@ -7,7 +8,9 @@ from helpers.PID_Controller import PID_Controller
 from helpers.data_logger import DataLogger
 from helpers.skills import bk, wkf, balance
 from scipy.spatial.transform import Rotation
+from helpers.petoi_kinematics import PetoiKinematics
 def main():
+    petoi = PetoiKinematics()
     # Open log file
     with open('simulation_log.txt', 'w') as log_file:
         def log(message):
@@ -36,7 +39,7 @@ def main():
         
         # Convert skill to reference trajectory
         log("Creating reference trajectory...")
-        bk_ref = np.deg2rad(np.array(bk))
+        bk_ref = np.deg2rad(np.repeat(balance, 100, axis=0))  # Repeat each row 100 times
         reference_traj = bk_ref[:, [3,7,0,4,2,6,1,5]]  # Reorder to match actuator mapping
         log(f"Reference trajectory shape: {reference_traj.shape}")
 
@@ -81,7 +84,7 @@ def main():
                     T_torque = len(torque_ref)
                     mpc_step = step // steps_per_mpc_step
                     log(f"Reference torque shape: {torque_ref.shape}")
-
+            
                     # Create reference window
                     log("Creating reference window...")
                     ref_window = np.array([
@@ -120,42 +123,65 @@ def main():
                         log(f"Using previous MPC solution: {u_opt.tolist()}")
                         current_u = u_opt
                     
-                    log("Computing A and B matrices...")
-                    A_sym = np.array(A_func(state, current_u))
-                    B_sym = np.array(B_func(state, current_u))
-                    log(f"A_sym shape: {A_sym.shape}, B_sym shape: {B_sym.shape}")
+                   
                 
                     # Setup MPC
-                    log("Setting up MPC...")
+                    
                     if step == 0:
+                        log("Computing A and B matrices...")
+                        state[6:14] = [30, 30, 30, 30, 30, 30, 30, 30]
+                        A_sym = np.array(A_func(state, current_u))
+                        B_sym = np.array(B_func(state, current_u))
+                        log(f"A_sym shape: {A_sym.shape}, B_sym shape: {B_sym.shape}")
+                        log("Setting up MPC...")
                         mpc_config.mpc.setup(A_sym, B_sym, mpc_config.Q, mpc_config.R, mpc_config.N)
-                    else:
-                        mpc_config.mpc.A = A_sym
-                        mpc_config.mpc.B = B_sym
-                        mpc_config.mpc.R = mpc_config.R
-                        mpc_config.mpc.Q = mpc_config.Q
                     
-                    # Set constraints
-                    log("Setting constraints...")
-                    mpc_config.mpc.x_min = -np.inf*np.ones(nx)
-                    mpc_config.mpc.x_max = np.inf*np.ones(nx)
-                    mpc_config.mpc.u_min = -0.75 * np.ones(8)
-                    mpc_config.mpc.u_max = 0.75 * np.ones(8)
+                    
+                        # Set constraints
+                        log("Setting constraints...")
+                        mpc_config.mpc.x_min = mpc_config.mpc.x_min
+                        mpc_config.mpc.x_max = mpc_config.mpc.x_max
+                        mpc_config.mpc.u_min = mpc_config.mpc.u_min 
+                        mpc_config.mpc.u_max = mpc_config.mpc.u_max 
 
-                    for k in range(mpc_config.N):
-                        mpc_config.mpc.x_min[6:14] = mpc_config.joint_limits[:, 0]
-                        mpc_config.mpc.x_max[6:14] = mpc_config.joint_limits[:, 1]
+                        
+
+
+                        # Solve MPC
+                        log("Solving MPC...")
+                        # mpc_config.mpc.set_x_ref(x_ref)
+                        # mpc_config.mpc.set_u_ref(u_ref)
                     
-                    # Solve MPC
-                    log("Solving MPC...")
-                    mpc_config.mpc.set_x_ref(x_ref)
-                    mpc_config.mpc.set_u_ref(u_ref)
-                    mpc_config.mpc.set_x0(state)
+                    goal_state = np.zeros_like(state)
+                    goal_state[1] = state[1] + 10
+                    goal_state[4] =  10
+                    mpc_config.mpc.set_x0(goal_state - state)
                     mpc_solution = mpc_config.mpc.solve()
-                    
+                    # In the main loop after solving MPC:
+                    grf_opt = mpc_solution["controls"][:8]
+                    joint_angles = pid.data.qpos[7:15]
+
+                    # Compute Jacobians for current state
+                    tau_opt = np.zeros(8)
+                    for i in range(4):
+                        alpha = joint_angles[2*i]
+                        beta = joint_angles[2*i + 1]
+                        # Get precomputed Jacobian function
+                        J_func = mpc_config.leg_jacobian(cs.MX.sym('alpha'), cs.MX.sym('beta'))
+                        J_current = J_func(alpha, beta)
+                        # Compute torques: τ = J^T * F
+                        grf = grf_opt.reshape((4, 2))
+                        F_leg = grf[i, :]
+                        tau_leg = cs.mtimes(J_current.T, F_leg.T)
+                        tau_opt[2*i] += tau_leg[0]
+                        tau_opt[2*i + 1] += tau_leg[1]
+
+
+                    # Apply torque limits
+                    u_opt = np.clip(tau_opt, -0.75, 0.75)
                     log(f"MPC solution keys: {list(mpc_solution.keys())}")
                     
-                    u_opt = np.clip(mpc_solution["controls"][:8], -0.75, 0.75)
+                    #u_opt = np.clip(mpc_solution["controls"][:8], -0.75, 0.75)
                     log(f"u_opt after clip: {u_opt.tolist()}")
                     
                     # Store solution
