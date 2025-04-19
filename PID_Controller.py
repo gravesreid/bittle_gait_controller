@@ -96,7 +96,7 @@ class PID_Controller:
         index = 0
 
         for i in range(num_timesteps):
-            desired_angles = np.array([np.deg2rad(behavior[i%len(behavior)][num]) for num in actuator_nums])
+            desired_angles = np.array([np.deg2rad(behavior[num]) for num in actuator_nums])
 
             # Calculate errors
             error_vec = desired_angles - self.get_angles(actuator_nums)
