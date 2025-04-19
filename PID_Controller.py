@@ -51,7 +51,7 @@ class PID_Controller:
         print("Actuator to qvel mapping:", self.actuator_to_qvel)
 
         self.jointPos_to_qpos = {}
-        self.jointVel_to_qvel = {}
+        self.jointVel_to_qpos = {}
         for name in self.actuator_names:
             joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
             self.jointPos_to_qpos[name] = self.model.jnt_qposadr[joint_id]
