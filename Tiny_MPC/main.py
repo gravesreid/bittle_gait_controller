@@ -129,7 +129,10 @@ def main():
                     
                     if step == 0:
                         log("Computing A and B matrices...")
+<<<<<<< HEAD
                         state[6:14] = [30, 30, 30, 30, 30, 30, 30, 30]
+=======
+>>>>>>> 1b200063cabd21cb640c3250bc729fa84161eda5
                         A_sym = np.array(A_func(state, current_u))
                         B_sym = np.array(B_func(state, current_u))
                         log(f"A_sym shape: {A_sym.shape}, B_sym shape: {B_sym.shape}")
@@ -141,16 +144,26 @@ def main():
                         log("Setting constraints...")
                         mpc_config.mpc.x_min = mpc_config.mpc.x_min
                         mpc_config.mpc.x_max = mpc_config.mpc.x_max
+<<<<<<< HEAD
                         mpc_config.mpc.u_min = mpc_config.mpc.u_min 
                         mpc_config.mpc.u_max = mpc_config.mpc.u_max 
 
+=======
+                        mpc_config.mpc.u_min = mpc_config.mpc.u_min
+                        mpc_config.mpc.u_max = mpc_config.mpc.u_max
+>>>>>>> 1b200063cabd21cb640c3250bc729fa84161eda5
                         
 
 
                         # Solve MPC
                         log("Solving MPC...")
+<<<<<<< HEAD
                         # mpc_config.mpc.set_x_ref(x_ref)
                         # mpc_config.mpc.set_u_ref(u_ref)
+=======
+                        mpc_config.mpc.set_x_ref(x_ref)
+                        mpc_config.mpc.set_u_ref(u_ref)
+>>>>>>> 1b200063cabd21cb640c3250bc729fa84161eda5
                     
                     goal_state = np.zeros_like(state)
                     goal_state[1] = state[1] + 10
