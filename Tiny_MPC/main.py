@@ -26,7 +26,7 @@ def main():
         steps_per_mpc_step = int(mpc_dt / sim_dt)
         nx = 22           # State dimension
         nu = 8            # Control dimension
-        num_timesteps = 5e3
+        num_timesteps = 1e4
         log(f"Parameters set: mpc_dt={mpc_dt}, sim_dt={sim_dt}, steps_per_mpc_step={steps_per_mpc_step}")
 
         # PID parameters
@@ -58,7 +58,7 @@ def main():
             u_opt = np.zeros(nu)
             f = mpc_config.create_dynamics()
             A_func, B_func = MPCConfig.linearize_dynamics(f)
-            
+
             for step in range(int(num_timesteps)):
                 current_time = step * sim_dt
                 
@@ -107,10 +107,13 @@ def main():
                     log("Building reference trajectories...")
                     x_ref = np.zeros((nx, mpc_config.N))
                     for k in range(mpc_config.N-1):
-                        com_des = kinematics.joints_to_com(ref_angle_window[k])
-                        com_des_dot = (kinematics.joints_to_com(ref_angle_window[k+1]) - com_des)/mpc_dt
-                        x_ref[0:3, k] = com_des
-                        x_ref[3:6, k] = com_des_dot
+                        #com_des = kinematics.joints_to_com(ref_angle_window[k])
+                        #com_des_dot = (kinematics.joints_to_com(ref_angle_window[k+1]) - com_des)/mpc_dt
+                        x_ref[0:3, k] = state[0:3]
+                        x_ref[1,k] = 0.09
+                        x_ref[2,k] = 0
+                        #log(f"com_des: {com_des.tolist()}")
+                        x_ref[3:6, k] = state[3:6]
                         x_ref[6:14, k] = ref_angle_window[k]
                         x_ref[14:22, k] = (ref_angle_window[k+1] - ref_angle_window[k])/mpc_dt
                     log(f"x_ref shape: {x_ref.shape}")
@@ -158,12 +161,12 @@ def main():
                     mpc_config.mpc.set_x_ref(x_ref)
                     mpc_config.mpc.set_u_ref(grf_ref)
                     
-                    mpc_config.mpc.set_x0(x_ref[:,0]-state)
+                    mpc_config.mpc.set_x0(state)
                     #mpc_config.mpc.set_x0(state)
                     mpc_solution = mpc_config.mpc.solve()
                     # In the main loop after solving MPC:
                     grf_opt = mpc_solution["controls"][:8]
-                    theta_opt = mpc_solution["states_all"][0,6:14]  # First column of x
+                    theta_opt = mpc_solution["states_all"][:,6:14]  # First column of x
                     joint_angles = pid.get_angles([3,7,0,4,2,6,1,5])
 
                     # Compute Jacobians for current state
@@ -200,14 +203,18 @@ def main():
 
                     # Execute control
                     log("Updating joint targets...")
-                    pid.set_targets(target=np.rad2deg(theta_opt))
+                    if mpc_step <= 20:
+                        pid.set_targets(target=np.rad2deg(x_ref[6:14,0]))
+                    else:
+                        print("Switching to MPC control")
+                        pid.set_targets(target=np.rad2deg(theta_opt))
 
                     # Log data
                     log("Logging data...")
                     logger.log_data(
                         timestep=current_time,
                         planned_angles=theta_opt,
-                        planned_com=kinematics.joints_to_com(theta_opt),
+                        planned_com= x_ref[0:3,0],
                         actual_angles=pid.get_angles([3,7,0,4,2,6,1,5]),
                         actual_com= np.array([pid.data.qpos[0], pid.data.qpos[2], pid.data.qpos[6]]),
                         controls=u_opt,
@@ -231,4 +238,5 @@ def main():
 
 
 if __name__ == "__main__":
+    
     main()
