@@ -8,13 +8,29 @@ class PetoiKinematics:
     def __init__(self, render_mode='3d') -> None:
         
         """ Static parameters """
-        self.body_length = self.a = 10.5 # cm
-        self.body_width = self.b = 10 # cm
-        self.leg_length = self.c = 4.6 # cm
-        self.foot_length = self.d = 4.6 # cm
-        self.upper_length = 0.1  # Shoulder to knee
-        self.lower_length = 0.12  # Knee to foot
-        self.shoulder_offset = 0.05  # Front shoulder x-offset
+        self.body_length = self.a = .105 # m
+        self.body_width = self.b = .1 # m
+        self.leg_length = self.c = .046 # m
+        self.foot_length = self.d = .046 # m
+        self.upper_length = 0.01  # Shoulder to knee
+        self.lower_length = 0.012  # Knee to foot
+        self.shoulder_offset = 0.005  # Front shoulder x-offset
+
+        """ Body and link mass """
+        self.thigh_mass = 0.006 # kg
+        self.foot_mass = 0.017 # kg
+        self.thigh_coms = np.array([
+            [0.0, -0.024575, 0.004372], # FL
+            [0.0, -0.024575, 0.004372], # BL
+            [0.0, 0.024575, 0.00777], # BR
+            [0.0, 0.024575, 0.00777], # FR
+        ])
+        self.foot_coms = np.array([
+            [-0.009232, 0.000238, -0.014614], # FL
+            [-0.008998, 0.000238, -0.014638], # BL
+            [0.008426, -0.000238, -0.01382], # BR
+            [0.009497, -0.000238, -0.01382], # FR
+        ])
 
         """ Dynamic parameters 
         Note that we make body angle and body height arrays to enable a smooth transition
@@ -226,6 +242,7 @@ class PetoiKinematics:
             betas.append(np.pi/2 - beta_tilde)
 
         return np.array(alphas), np.array(betas)
+
     def forward_kinematics_front(self, leg_angles):
         """Returns foot position in body frame as 2D vector [x, z]"""
         alpha, beta = leg_angles[0], leg_angles[1]
@@ -239,6 +256,67 @@ class PetoiKinematics:
         x = self.upper_length*cs.sin(alpha) + self.lower_length*cs.sin(alpha + beta)
         z = -self.upper_length*cs.cos(alpha) - self.lower_length*cs.cos(alpha + beta)
         return cs.vertcat(x - self.shoulder_offset, z)
+    
+    def joints_to_com(self, alphas, betas):
+        """
+        compute center of mass based on joint angles
+        :param alphas:
+            np.array with shape [4,]
+            each row is the angle of the shoulder joint
+        :param betas:
+            np.array with shape [4,]
+            each row is the angle of the knee joint
+        :return
+            com_proj: np.array with shape [3,]
+            each row is the xz coordinate of the center of mass projection on the ground
+        """
+
+        total_com = np.zeros(3)
+        # [x,z,1]
+        total_mass = 0.0
+
+        for i in range(4):
+            ca, sa = np.cos(alphas[i]), np.sin(alphas[i])
+            cb, sb = np.cos(betas[i]), np.sin(betas[i])
+
+            # Select shoulder-to-world transform
+            T01 = self.T01_front if i in [0, 3] else self.T01_back
+
+            # -------- Thigh COM --------
+            # Position along thigh (first link)
+            # self.thigh_coms[i] is assumed in local thigh frame
+            thigh_com_local = self.thigh_coms[i]
+            thigh_com_offset = np.array([
+                ca * thigh_com_local[0] - sa * thigh_com_local[2],
+                sa * thigh_com_local[0] + ca * thigh_com_local[2],
+                1
+            ])
+            thigh_com_world = T01 @ thigh_com_offset
+
+            # -------- Foot COM --------
+            # Build T02 as in your FK code (shoulder → knee)
+            T02 = T01 @ np.array([
+                [ca, -sa, self.c * sa],
+                [sa,  ca, -self.c * ca],
+                [0,    0, 1]
+            ])
+            # self.foot_coms[i] assumed in local foot frame
+            foot_com_local = self.foot_coms[i]
+            # rotate by knee
+            foot_com_offset = np.array([
+                cb * foot_com_local[0] - sb * foot_com_local[2],
+                sb * foot_com_local[0] + cb * foot_com_local[2],
+                1
+            ])
+            foot_com_world = T02 @ foot_com_offset
+
+            total_com += self.thigh_mass * thigh_com_world
+            total_com += self.foot_mass * foot_com_world
+            total_mass += self.thigh_mass + self.foot_mass
+
+        # Final COM position
+        com = total_com / total_mass
+        return com[:2] # Return com x,z
 
 
 

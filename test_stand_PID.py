@@ -11,8 +11,7 @@ import os
 from skills import balance, wkf, bk
 from PID_Controller import PID_Controller
 
-pid_controller = PID_Controller("urdf/bittle.xml")
-orientation, gyro = pid_controller.get_imu_readings()
+pid_controller = PID_Controller("urdf/bittle_scaled.xml")
 kp = 1e5
 ki = 50
 kd = 100
