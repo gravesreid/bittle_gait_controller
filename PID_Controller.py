@@ -50,10 +50,12 @@ class PID_Controller:
         print("Actuator to qpos mapping:", self.actuator_to_qpos)
         print("Actuator to qvel mapping:", self.actuator_to_qvel)
 
-        self.joint_to_qpos = {}
+        self.jointPos_to_qpos = {}
+        self.jointVel_to_qvel = {}
         for name in self.actuator_names:
             joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-            self.joint_to_qpos[name] = self.model.jnt_qposadr[joint_id]
+            self.jointPos_to_qpos[name] = self.model.jnt_qposadr[joint_id]
+            self.jointVel_to_qpos[name] = self.model.jnt_dofadr[joint_id]
         self.actuator_map = {
             3:"left-back-shoulder-joint",
             7:"left-back-knee-joint",
@@ -71,8 +73,15 @@ class PID_Controller:
         #   joint_names = [self.actuator_map[num] for num in actuator_nums]
         #   q_pos = [self.joint_to_qpos[name] for name in joint_names]
         #   joint_angles = [self.data.qpos[pos] for pos in q_pos]
-        return np.array(self.data.qpos[[self.joint_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
+        return np.array(self.data.qpos[[self.jointPos_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
 
+    def get_velocities(self, actuator_nums):
+        # This is what this line is doing all at once:
+        #   joint_names = [self.actuator_map[num] for num in actuator_nums]
+        #   q_vel = [self.joint_to_qvel[name] for name in joint_names]
+        #   joint_velocities = [self.data.qvel[pos] for pos in q_vel]
+        return np.array(self.data.qvel[[self.jointVel_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
+    
     def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
         #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e = 10000
