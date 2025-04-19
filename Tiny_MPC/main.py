@@ -129,9 +129,10 @@ def main():
                     
                     if step == 0:
                         log("Computing A and B matrices...")
-                        state[6:14] = [30, 30, 30, 30, 30, 30, 30, 30]
-                        A_sym = np.array(A_func(state, current_u))
-                        B_sym = np.array(B_func(state, current_u))
+                        standing_state = state.copy()
+                        standing_state[6:14] = [30, 30, 30, 30, 30, 30, 30, 30]
+                        A_sym = np.array(A_func(standing_state, current_u))
+                        B_sym = np.array(B_func(standing_state, current_u))
                         log(f"A_sym shape: {A_sym.shape}, B_sym shape: {B_sym.shape}")
                         log("Setting up MPC...")
                         mpc_config.mpc.setup(A_sym, B_sym, mpc_config.Q, mpc_config.R, mpc_config.N)
@@ -149,13 +150,13 @@ def main():
 
                         # Solve MPC
                         log("Solving MPC...")
-                        # mpc_config.mpc.set_x_ref(x_ref)
-                        # mpc_config.mpc.set_u_ref(u_ref)
+                    mpc_config.mpc.set_x_ref(x_ref)
+                    mpc_config.mpc.set_u_ref(u_ref)
                     
-                    goal_state = np.zeros_like(state)
-                    goal_state[1] = state[1] + 10
-                    goal_state[4] =  10
-                    mpc_config.mpc.set_x0(goal_state - state)
+                    # goal_state = np.zeros_like(state)
+                    # goal_state[1] = state[1] + 10
+                    # goal_state[4] =  10
+                    mpc_config.mpc.set_x0(state)
                     mpc_solution = mpc_config.mpc.solve()
                     # In the main loop after solving MPC:
                     grf_opt = mpc_solution["controls"][:8]

@@ -36,7 +36,7 @@
     <geom name="ground"  type="plane" pos="0 0 0" size="100 100 0.001" quat="1 0 0 0" material="matplane" condim="6" conaffinity="15" />
     <camera name="fixed" pos="0 -3.0 1.4239305602569667" xyaxes="1 0 0 0 0 1" />
     <camera name="track" mode="trackcom" pos="0 -3.0 1.4239305602569667" xyaxes="1 0 0 0 0 1" />
-    <body name="root" pos="0 0 0.09239305602569667" quat="1 0 0 0">
+    <body name="root" pos="0 0 0.009239305602569667" quat="1 0 0 0">
       <freejoint name="root" />
       <inertial pos="0 -0.004 -0.002" mass="0.165" diaginertia="0.001 0.001 0.001" />
       <site name="imu" size="0.01" pos="0 0 0" />
