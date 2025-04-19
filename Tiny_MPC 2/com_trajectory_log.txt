@@ -1,1 +1,0 @@
-Time(s)	Ref_X	Ref_Z	Ref_Yaw	Planned_X	Planned_Z	Planned_Yaw	Actual_X	Actual_Z	Actual_Yaw

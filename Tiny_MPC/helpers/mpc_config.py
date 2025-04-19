@@ -10,7 +10,19 @@ class MPCConfig:
         self.mpc = MPC.TinyMPC()
         self.setup_mpc()
         self.petoi = PetoiKinematics()
-    
+    def leg_jacobian(self, alpha, beta):
+        petoi = PetoiKinematics()
+        """Symbolic Jacobian for a single leg"""
+        L1 = petoi.upper_length
+        L2 = petoi.lower_length
+        
+        # Foot position equations
+        x_foot = L1*cs.sin(alpha) + L2*cs.sin(alpha + beta)
+        y_foot = -L1*cs.cos(alpha) - L2*cs.cos(alpha + beta)
+        
+        # Create Jacobian matrix
+        J = cs.jacobian(cs.vertcat(x_foot, y_foot), cs.vertcat(alpha, beta))
+        return cs.Function('leg_jacobian', [alpha, beta], [J])
     def setup_mpc(self):
         """Configure MPC parameters, costs, and constraints"""
         # Basic MPC parameters
@@ -28,9 +40,8 @@ class MPCConfig:
         self.R = np.diag([1e-1]*8)  # Reduced control cost
         
         self.mpc.Q = self.Q
-        self.mpc.R = self.R
-        self.mpc.Qf = 10 * self.Q  # Terminal cost
-
+        self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]) 
+        self.R[1::2] = 0.05  # fy components
         # State constraints (time-invariant)
         self.mpc.x_min = -np.inf * np.ones(self.mpc.nx)
         self.mpc.x_max = np.inf * np.ones(self.mpc.nx)
@@ -51,74 +62,97 @@ class MPCConfig:
         self.mpc.x_min[6:14] = joint_limits[:, 0]
         self.mpc.x_max[6:14] = joint_limits[:, 1]
 
-        # Control constraints (torque limits from XML)
-        self.mpc.u_min = -0.75 * np.ones(self.mpc.nu)
-        self.mpc.u_max = 0.75 * np.ones(self.mpc.nu)
-    
-    def create_dynamics(self):
-        """Full dynamics model using RK4 integration over MPC timestep (0.1s)"""
-        petoi = PetoiKinematics()
-        
-        # State and control variables
-        x = cs.MX.sym('x', 22)
-        u = cs.MX.sym('u', 8)
+        # GRF Constraints
+        mu = 0.8  # Friction coefficient
+        self.mpc.u_min = [-np.inf, 0, -np.inf, 0, -np.inf, 0, -np.inf, 0]  # fy >= 0
+        self.mpc.u_max = [np.inf]*8
 
-        # XML-derived parameters (unchanged)
+        # Add friction cone constraints |fx| <= μ*fy for each leg
+        # Use linear inequality constraints: 
+        #   fx - μ*fy <= 0
+        #  -fx - μ*fy <= 0
+        A_ineq = np.zeros((8, 8))
+        b_ineq = np.zeros(8)
+        for i in range(4):
+            # fx_i <= μ*fy_i
+            A_ineq[2*i, 2*i] = 1
+            A_ineq[2*i, 2*i + 1] = -mu
+            # -fx_i <= μ*fy_i
+            A_ineq[2*i + 1, 2*i] = -1
+            A_ineq[2*i + 1, 2*i + 1] = -mu
+
+        self.mpc.A_ineq = A_ineq
+        self.mpc.b_ineq = b_ineq
+
+    def create_dynamics(self):
+        """Dynamics model using GRFs as controls"""
+        petoi = PetoiKinematics()
+        x = cs.MX.sym('x', 22)
+        u = cs.MX.sym('u', 8)  # GRFs: [fx1, fy1, ..., fx4, fy4]
+
+        # XML-derived parameters
         total_mass = 0.165
         com_inertia = 0.001
         joint_inertias = np.array([0.00044, 0.00063, 0.00044, 0.00063,
                                 0.00044, 0.00063, 0.00044, 0.00063])
         joint_damping = 0.01
-        torque_limit = 0.75
 
-        # Continuous-time dynamics function
         def continuous_dynamics(x, u):
             com_pos = x[0:3]
             com_vel = x[3:6]
             joint_angles = x[6:14]
             joint_vel = x[14:22]
 
-            # 1. CoM Dynamics (unchanged)
-            foot_positions = []
-            for i in range(4):
-                alpha = joint_angles[i*2]
-                beta = joint_angles[i*2+1]
-                L = petoi.leg_length + petoi.foot_length * cs.sin(beta)
-                x_foot = L * cs.sin(alpha)
-                z_foot = -L * cs.cos(alpha)
-                if i in [0, 3]:
-                    T = petoi.T01_front @ cs.vertcat(x_foot, z_foot, 1)
-                else:
-                    T = petoi.T01_back @ cs.vertcat(x_foot, z_foot, 1)
-                foot_positions.append(T[:2])
+            # 1. Compute joint torques from GRFs using Jacobian transpose
+            grf = u.reshape((4, 2))  # Reshape to [fx1, fy1; ...; fx4, fy4]
+            tau = cs.MX.zeros(8)
 
-            total_force = cs.MX.zeros(2)
+            for i in range(4):
+                # Get current joint angles
+                alpha = joint_angles[2*i]
+                beta = joint_angles[2*i + 1]
+                
+                # Get precomputed Jacobian function
+                J_func = self.leg_jacobian(cs.MX.sym('alpha'), cs.MX.sym('beta'))
+                
+                # Evaluate at current angles
+                J_current = J_func(alpha, beta)
+                
+                # Compute torques: τ = J^T * F
+                F_leg = grf[i, :]
+                tau_leg = cs.mtimes(J_current.T, F_leg.T)
+                tau[2*i] += tau_leg[0]
+                tau[2*i + 1] += tau_leg[1]
+
+            # 2. CoM dynamics from GRFs
+            total_force = cs.sum1(grf)  # Sum all GRFs
             total_torque = 0.0
-            k_ground = 1500
-            c_ground = 75
-            
-            for fp in foot_positions:
-                penetration = cs.fmax(0 - fp[1], 0)
-                f_z = k_ground * penetration - c_ground * com_vel[1]
-                f_x = -0.25 * f_z * cs.tanh(com_vel[0] * 15)
-                lever_arm = fp - com_pos[:2]
-                total_torque += lever_arm[0] * f_z - lever_arm[1] * f_x
-                total_force += cs.vertcat(f_x, f_z)
-            
+
+            # Compute torque from GRFs about CoM
+            for i in range(4):
+                alpha = joint_angles[2*i]
+                beta = joint_angles[2*i + 1]
+                L1 = petoi.upper_length
+                L2 = petoi.lower_length
+                x_foot = L1 * cs.sin(alpha) + L2 * cs.sin(alpha + beta)
+                y_foot = -L1 * cs.cos(alpha) - L2 * cs.cos(alpha + beta)
+                lever_arm = cs.vertcat(x_foot, y_foot)
+                total_torque += lever_arm[0] * grf[i, 1] - lever_arm[1] * grf[i, 0]
+
             com_acc = cs.vertcat(
                 total_force[0]/total_mass,
                 total_force[1]/total_mass - 9.81,
                 total_torque / com_inertia
             )
 
-            # 2. Joint Dynamics (unchanged)
-            joint_acc = (cs.fmin(cs.fmax(u, -torque_limit), torque_limit)
-                        - joint_damping * joint_vel) / joint_inertias
+            # 3. Joint dynamics
+            joint_acc = (tau - joint_damping * joint_vel) / joint_inertias
 
             return cs.vertcat(
                 com_vel[0], com_vel[1], com_vel[2],
                 com_acc[0], com_acc[1], com_acc[2],
-                joint_vel, joint_acc
+                joint_vel,
+                joint_acc
             )
 
         # Create continuous dynamics function
