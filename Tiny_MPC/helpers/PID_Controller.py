@@ -50,14 +50,11 @@ class PID_Controller:
         print("Actuator to qpos mapping:", self.actuator_to_qpos)
         print("Actuator to qvel mapping:", self.actuator_to_qvel)
 
-
-
-    def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
-        joint_to_qpos = {}
+        self.joint_to_qpos = {}
         for name in self.actuator_names:
             joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-            joint_to_qpos[name] = self.model.jnt_qposadr[joint_id]
-        actuator_map = {
+            self.joint_to_qpos[name] = self.model.jnt_qposadr[joint_id]
+        self.actuator_map = {
             3:"left-back-shoulder-joint",
             7:"left-back-knee-joint",
             0:"left-front-shoulder-joint",
@@ -66,9 +63,17 @@ class PID_Controller:
             6:"right-back-knee-joint",
             1:"right-front-shoulder-joint",
             5:"right-front-knee-joint",
-
         }
-        actuator_to_ctrl = {name: i for i, name in enumerate(self.actuator_names)}
+        self.actuator_to_ctrl = {name: i for i, name in enumerate(self.actuator_names)}
+
+    def get_angles(self, actuator_nums):
+        # This is what this line is doing all at once:
+        #   joint_names = [self.actuator_map[num] for num in actuator_nums]
+        #   q_pos = [self.joint_to_qpos[name] for name in joint_names]
+        #   joint_angles = [self.data.qpos[pos] for pos in q_pos]
+        return np.array(self.data.qpos[[self.joint_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
+
+    def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
         #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e = 10000
         error_vec = 100*np.ones(8)
@@ -81,14 +86,12 @@ class PID_Controller:
         actuator_nums = [3,7,0,4,2,6,1,5]
         index = 0
 
-
         for i in range(num_timesteps):
             
             desired_angles = np.array([np.deg2rad(behavior[num]) for num in actuator_nums])
-            
-            
+
             # Calculate errors
-            error_vec = desired_angles - np.array([self.data.qpos[joint_to_qpos[actuator_map[num]]] for num in actuator_nums])
+            error_vec = desired_angles - self.get_angles(actuator_nums)
             int_error_vec += error_vec*dt
             de_dt_vec = (error_vec - prev_error_vec)/dt
 
@@ -99,7 +102,6 @@ class PID_Controller:
                 int_e = int_error_vec[j]
 
                 ctrl = kp*e + ki*int_e + kd*de_dt
-                #print("Control signal:", ctrl)
 
                 # PID control with clipping
                 if clipped_control == True:

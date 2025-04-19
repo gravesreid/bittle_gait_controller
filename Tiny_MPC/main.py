@@ -126,7 +126,6 @@ def main():
                    
                 
                     # Setup MPC
-                    
                     if step == 0:
                         log("Computing A and B matrices...")
                         standing_state = state.copy()
@@ -137,7 +136,6 @@ def main():
                         log("Setting up MPC...")
                         mpc_config.mpc.setup(A_sym, B_sym, mpc_config.Q, mpc_config.R, mpc_config.N)
                     
-                    
                         # Set constraints
                         log("Setting constraints...")
                         mpc_config.mpc.x_min = mpc_config.mpc.x_min
@@ -145,17 +143,12 @@ def main():
                         mpc_config.mpc.u_min = mpc_config.mpc.u_min 
                         mpc_config.mpc.u_max = mpc_config.mpc.u_max 
 
-                        
-
-
                         # Solve MPC
                         log("Solving MPC...")
+                    
                     mpc_config.mpc.set_x_ref(x_ref)
                     mpc_config.mpc.set_u_ref(u_ref)
                     
-                    # goal_state = np.zeros_like(state)
-                    # goal_state[1] = state[1] + 10
-                    # goal_state[4] =  10
                     mpc_config.mpc.set_x0(state)
                     mpc_solution = mpc_config.mpc.solve()
                     # In the main loop after solving MPC:
