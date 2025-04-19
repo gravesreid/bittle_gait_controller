@@ -10,6 +10,39 @@ class MPCConfig:
         self.mpc = MPC.TinyMPC()
         self.setup_mpc()
         self.petoi = PetoiKinematics()
+        joint_angles_sym = cs.MX.sym('joint_angles', 8)
+        tau_sym = cs.MX.sym('tau', 8)
+
+        grf_expr = self.joints_to_GRF(joint_angles_sym, tau_sym)
+
+        self.joints_to_GRF_func = cs.Function('joints_to_GRF_func', [joint_angles_sym, tau_sym], [grf_expr])
+    def joints_to_GRF(self, joint_angles, tau):
+        grf = cs.MX.zeros((4, 2))  # Initialize GRFs array for 4 legs
+
+        for i in range(4):
+            alpha = joint_angles[2*i]
+            beta = joint_angles[2*i + 1]
+
+            # Get Jacobian function for the leg
+            J_func = self.leg_jacobian(cs.MX.sym('alpha'), cs.MX.sym('beta'))
+
+            # Evaluate Jacobian at current joint angles
+            J_current = J_func(alpha, beta)
+
+            # Extract joint torques for this leg
+            tau_leg = cs.vertcat(tau[2*i], tau[2*i + 1])
+
+            # Compute pseudoinverse of Jacobian transpose
+            Jt_pinv = cs.pinv(J_current.T)
+
+            # Compute GRF for the leg: F = (J^T)^dagger * tau
+            F_leg = cs.mtimes(Jt_pinv, tau_leg)
+
+            # Store computed GRF
+            grf[i, :] = F_leg.T
+
+        return grf
+
     def leg_jacobian(self, alpha, beta):
         petoi = PetoiKinematics()
         """Symbolic Jacobian for a single leg"""

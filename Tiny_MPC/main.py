@@ -80,8 +80,8 @@ def main():
                     state[3:6] = [pid.data.qvel[0], pid.data.qvel[2], pid.data.qvel[5]]
                     
                     # Joint states (8 joints)
-                    state[6:14] = pid.data.qpos[7:15]    # Joint angles
-                    state[14:22] = pid.data.qvel[6:14]   # Joint velocities
+                    state[6:14] = pid.get_angles([3,7,0,4,2,6,1,5])   # Joint angles
+                    state[14:22] = pid.get_velocities([3,7,0,4,2,6,1,5])   # Joint velocities
                     log(f"State updated: {state.tolist()}")
                     
                     # Compute reference trajectories
@@ -111,7 +111,7 @@ def main():
                         com_des_dot = (kinematics.joints_to_com(ref_angle_window[k+1]) - com_des)/mpc_dt
                         x_ref[0:3, k] = com_des
                         x_ref[3:6, k] = com_des_dot
-                        x_ref[6:14, k] = ref_window[k]
+                        x_ref[6:14, k] = ref_angle_window[k]
                         x_ref[14:22, k] = (ref_angle_window[k+1] - ref_angle_window[k])/mpc_dt
                     log(f"x_ref shape: {x_ref.shape}")
 
@@ -121,13 +121,16 @@ def main():
                     u_ref = np.zeros((nu, mpc_config.N-1))
                     for k in range(mpc_config.N-1):
                         u_ref[:, k] = ref_window[k % len(ref_window), :]
-                    
+                    grf_ref = u_ref.copy()
+                    for k in range(mpc_config.N-1):
+                        grf_numeric = mpc_config.joints_to_GRF_func(ref_angle_window[k], u_ref[:, k])
+                        grf_ref[:, k] = np.array(grf_numeric).flatten()
                     if step == 0:
                         log("First step - using reference control")
-                        current_u = u_ref[:, 0]
+                        current_u = grf_ref[:, 0]
                     else:
                         log(f"Using previous MPC solution: {u_opt.tolist()}")
-                        current_u = u_opt
+                        current_u = grf_opt
                     
                    
                 
@@ -135,7 +138,7 @@ def main():
                     if step == 0:
                         log("Computing A and B matrices...")
                         standing_state = state.copy()
-                        standing_state[6:14] = [30, 30, 30, 30, 30, 30, 30, 30]
+                        standing_state[6:14] = np.deg2rad([30, 30, 30, 30, 30, 30, 30, 30])
                         A_sym = np.array(A_func(standing_state, current_u))
                         B_sym = np.array(B_func(standing_state, current_u))
                         log(f"A_sym shape: {A_sym.shape}, B_sym shape: {B_sym.shape}")
@@ -153,13 +156,15 @@ def main():
                         log("Solving MPC...")
                     
                     mpc_config.mpc.set_x_ref(x_ref)
-                    mpc_config.mpc.set_u_ref(u_ref)
+                    mpc_config.mpc.set_u_ref(grf_ref)
                     
-                    mpc_config.mpc.set_x0(state)
+                    mpc_config.mpc.set_x0(x_ref[:,0]-state)
+                    #mpc_config.mpc.set_x0(state)
                     mpc_solution = mpc_config.mpc.solve()
                     # In the main loop after solving MPC:
                     grf_opt = mpc_solution["controls"][:8]
-                    joint_angles = pid.data.qpos[7:15]
+                    theta_opt = mpc_solution["states_all"][0,6:14]  # First column of x
+                    joint_angles = pid.get_angles([3,7,0,4,2,6,1,5])
 
                     # Compute Jacobians for current state
                     tau_opt = np.zeros(8)
@@ -179,30 +184,31 @@ def main():
 
                     # Apply torque limits
                     u_opt = np.clip(tau_opt, -0.75, 0.75)
-                    log(f"MPC solution keys: {list(mpc_solution.keys())}")
+                    #log(f"MPC solution keys: {list(mpc_solution.keys())}")
                     
                     #u_opt = np.clip(mpc_solution["controls"][:8], -0.75, 0.75)
-                    log(f"u_opt after clip: {u_opt.tolist()}")
+                    #log(f"u_opt after clip: {u_opt.tolist()}")
                     
                     # Store solution
                     logger.history['mpc_solutions'].append(np.array(mpc_solution["controls"][:8]))
-                    log(f"Stored mpc_solutions length: {len(logger.history['mpc_solutions'])}")
+                    #log(f"Stored mpc_solutions length: {len(logger.history['mpc_solutions'])}")
 
                     # Convert torque to theta_ref
                     theta_ref = state[6:14] + u_opt / kp
-                    log(f"theta_ref: {theta_ref.tolist()}")
+                    log(f"theta_ref: {x_ref[6:14,0].tolist()}")
+                    log(f"theta_opt: {theta_opt.tolist()}")
 
                     # Execute control
                     log("Updating joint targets...")
-                    pid.set_targets(target=np.rad2deg(theta_ref))
+                    pid.set_targets(target=np.rad2deg(theta_opt))
 
                     # Log data
                     log("Logging data...")
                     logger.log_data(
                         timestep=current_time,
-                        planned_angles=theta_ref,
-                        planned_com=kinematics.joints_to_com(theta_ref),
-                        actual_angles=pid.data.qpos[7:15],
+                        planned_angles=theta_opt,
+                        planned_com=kinematics.joints_to_com(theta_opt),
+                        actual_angles=pid.get_angles([3,7,0,4,2,6,1,5]),
                         actual_com= np.array([pid.data.qpos[0], pid.data.qpos[2], pid.data.qpos[6]]),
                         controls=u_opt,
                         reference_angles=ref_angle_window[0],  # Log first reference angle of the window
