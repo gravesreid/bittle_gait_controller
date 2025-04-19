@@ -189,7 +189,7 @@ def main():
                     # Execute control
                     log("Executing control...")
                     pid.execute(
-                        behavior=np.rad2deg(theta_ref),
+                        target=np.rad2deg(theta_ref),
                         num_timesteps=steps_per_mpc_step,
                         viewer=viewer,
                         dt=sim_dt,

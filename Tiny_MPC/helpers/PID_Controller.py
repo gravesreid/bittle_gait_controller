@@ -82,7 +82,7 @@ class PID_Controller:
         #   joint_velocities = [self.data.qvel[pos] for pos in q_vel]
         return np.array(self.data.qvel[[self.jointVel_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
     
-    def execute(self, behavior, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
+    def execute(self, target, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
         #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e = 10000
         error_vec = 100*np.ones(8)
@@ -95,9 +95,8 @@ class PID_Controller:
         actuator_nums = [3,7,0,4,2,6,1,5]
         index = 0
 
+        desired_angles = np.array([np.deg2rad(target[num]) for num in actuator_nums])
         for i in range(num_timesteps):
-            desired_angles = np.array([np.deg2rad(behavior[num]) for num in actuator_nums])
-
             # Calculate errors
             error_vec = desired_angles - self.get_angles(actuator_nums)
             int_error_vec += error_vec*dt
@@ -124,7 +123,7 @@ class PID_Controller:
 
 
             if i % 50 == 0:
-                index = (index + 1) % len(behavior)
+                index = (index + 1) % len(target)
 
             
             # After convergence (or reaching max iterations), store final angles:

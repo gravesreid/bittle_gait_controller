@@ -8,7 +8,7 @@ matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 
 import os
 
-from skills import balance, wkf, bk
+from skills import balance
 from PID_Controller import PID_Controller
 
 pid_controller = PID_Controller("urdf/bittle.xml")
@@ -23,4 +23,5 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
     print("Stand")
-    pid_controller.execute(balance,num_timesteps,dt, kp,ki,kd, viewer=viewer, plotty=True)
+    for i in range(num_timesteps):
+        pid_controller.execute(balance[0],1,dt, kp,ki,kd, viewer=viewer, plotty=False)
