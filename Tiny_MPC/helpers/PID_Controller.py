@@ -6,10 +6,23 @@ import matplotlib
 matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 
 class PID_Controller:
-    def __init__(self, xml_path):
+    def __init__(self, xml_path, dt, kp=1.0, ki=0.0, kd=0.1):
         # Load self.model and self.data
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
+
+        self.t = 0
+        self.dt = dt
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+
+        self.clipped_control = False
+        self.limits = [0,0]
+
+        self.targets = np.zeros((1,8))
+        self.prev_error_vec = np.zeros(8)
+        self.int_error_vec = np.zeros(8)
 
         # initialize imu
         # Get the sensor IDs
@@ -28,28 +41,12 @@ class PID_Controller:
         self.imu_orientation_dim = self.model.sensor_dim[self.imu_orientation_sensor_id]  # Should be 4
         self.imu_gyro_dim = self.model.sensor_dim[self.imu_gyro_sensor_id]  # Should be 3
 
-
         # Build mappings for qpos and qvel indices for each actuator/joint
         self.actuator_names = [
             mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, i)
             for i in range(self.model.nu)
         ]
-        print("Actuator names:", self.actuator_names)
-        self.actuator_to_qpos = {}
-        self.actuator_to_qvel = {}
-
-        for name in self.actuator_names:
-            # Get the joint id by name
-            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-            # qpos index for configuration (e.g., angle) and qvel index for velocity
-            qpos_index = self.model.jnt_qposadr[joint_id]
-            qvel_index = self.model.jnt_dofadr[joint_id]
-            self.actuator_to_qpos[name] = qpos_index
-            self.actuator_to_qvel[name] = qvel_index
-
-        print("Actuator to qpos mapping:", self.actuator_to_qpos)
-        print("Actuator to qvel mapping:", self.actuator_to_qvel)
-
+        self.actuator_nums = [3,7,0,4,2,6,1,5]
         self.jointPos_to_qpos = {}
         self.jointVel_to_qpos = {}
         for name in self.actuator_names:
@@ -82,6 +79,47 @@ class PID_Controller:
         #   joint_velocities = [self.data.qvel[pos] for pos in q_vel]
         return np.array(self.data.qvel[[self.jointVel_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
     
+    def set_targets(self, target):
+        self.t = 0
+        # If target is list of lists, convert to numpy array
+        if isinstance(target, list) and all(isinstance(i, list) for i in target):
+            target = np.array(target)
+        # If target is 1d numpy array, convert to 2d
+        if target.ndim == 1:
+            target = target.reshape(1, -1)
+        self.targets = target
+    
+    def step(self, viewer):
+        #print("Actuator to ctrl mapping:", actuator_to_ctrl)
+        e, de_dt, int_e = 10000, 100, 1
+        error_vec = e*np.ones(8)
+        
+        desired_angles = np.array([np.deg2rad(self.targets[self.t%len(self.targets)][num]) for num in self.actuator_nums])
+
+        # Calculate errors
+        error_vec = desired_angles - self.get_angles(self.actuator_nums)
+        self.int_error_vec += error_vec*self.dt
+        de_dt_vec = (error_vec - self.prev_error_vec)/self.dt
+
+        # PID control for each joint
+        for j, num in enumerate(self.actuator_nums):
+            e = error_vec[j]
+            de_dt = de_dt_vec[j]
+            int_e = self.int_error_vec[j]
+
+            ctrl = self.kp*e + self.ki*int_e + self.kd*de_dt
+
+            # PID control with clipping
+            if self.clipped_control == True:
+                ctrl = np.clip(ctrl,self.limits[0],self.limits[1])
+            
+            self.data.ctrl[self.actuator_to_ctrl[self.actuator_map[num]]] = ctrl
+            self.prev_error_vec[j] = e
+        
+        # Single simulation step
+        mujoco.mj_step(self.model, self.data)
+        viewer.sync()
+
     def execute(self, target, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
         #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e = 10000

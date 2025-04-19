@@ -19,14 +19,6 @@ def main():
             log_file.write(message + '\n')
         
         log("=== Starting main() ===")
-        # Initialize components
-        log("Initializing components...")
-        mpc_config = MPCConfig(N=8)
-        kinematics = KinematicsHelper()
-        pid = PID_Controller("urdf/bittle.xml")
-        logger = DataLogger()
-        log("Components initialized")
-
         # Simulation parameters
         log("Setting simulation parameters...")
         mpc_dt = 0.1     # 100ms MPC timestep
@@ -36,6 +28,23 @@ def main():
         nu = 8            # Control dimension
         num_timesteps = 5e3
         log(f"Parameters set: mpc_dt={mpc_dt}, sim_dt={sim_dt}, steps_per_mpc_step={steps_per_mpc_step}")
+
+        # PID parameters
+        kp = 1e2
+        kd = 5e-1
+        ki = 5e-1
+        
+        # Initialize components
+        log("Initializing components...")
+        mpc_config = MPCConfig(N=8)
+        kinematics = KinematicsHelper()
+        pid = PID_Controller("urdf/bittle.xml", 
+                             dt=sim_dt,
+                             kp=kp,
+                             ki=ki,
+                             kd=kd)
+        logger = DataLogger()
+        log("Components initialized")
         
         # Convert skill to reference trajectory
         log("Creating reference trajectory...")
@@ -77,9 +86,6 @@ def main():
                     
                     # Compute reference trajectories
                     log("Computing reference trajectories...")
-                    kp = 1e2
-                    kd = 5e-1
-                    ki = 5e-1
                     torque_ref = Util.compute_pd_torque(reference_traj, kp, kd, ki, sim_dt)
                     T_torque = len(torque_ref)
                     mpc_step = step // steps_per_mpc_step
@@ -187,16 +193,8 @@ def main():
                     log(f"theta_ref: {theta_ref.tolist()}")
 
                     # Execute control
-                    log("Executing control...")
-                    pid.execute(
-                        target=np.rad2deg(theta_ref),
-                        num_timesteps=steps_per_mpc_step,
-                        viewer=viewer,
-                        dt=sim_dt,
-                        kp=kp,
-                        ki=ki,
-                        kd=kd
-                    )
+                    log("Updating joint targets...")
+                    pid.set_targets(target=np.rad2deg(theta_ref))
 
                     # Log data
                     log("Logging data...")
@@ -212,9 +210,9 @@ def main():
                     )
                     log("Data logged")
 
+                # MPC Update finished
                 # Simulation step
-                mujoco.mj_step(pid.model, pid.data)
-                viewer.sync()
+                pid.step(viewer)
 
             # Generate plots
             log("Generating plots...")
