@@ -101,6 +101,7 @@ def main():
                         reference_traj[(mpc_step + k) % len(reference_traj)]
                         for k in range(mpc_config.N)
                     ])
+                    print("ref_angle_window", ref_angle_window)
                     log(f"ref_window shape: {ref_window.shape}, ref_angle_window shape: {ref_angle_window.shape}")
 
                     # Build reference trajectories
@@ -114,10 +115,17 @@ def main():
                         x_ref[2,k] = 0
                         #log(f"com_des: {com_des.tolist()}")
                         x_ref[3:6, k] = state[3:6]
-                        x_ref[6:14, k] = ref_angle_window[k]
+                        print(ref_angle_window[:,k])
+                        x_ref[6:14, k] = ref_angle_window[:,k]
                         x_ref[14:22, k] = (ref_angle_window[k+1] - ref_angle_window[k])/mpc_dt
-                    #log(f"x_ref shape: {x_ref.shape}")
+                    # Fill the last joint angle reference at horizon end
+                    x_ref[6:14, mpc_config.N - 1] = ref_angle_window[-1]
 
+                    # Optionally, set joint velocities at last step to zero or approximate
+                    x_ref[14:22, mpc_config.N - 1] = 0  # or (ref_angle_window[-1] - ref_angle_window[-2]) / mpc_dt
+
+                    #log(f"x_ref shape: {x_ref.shape}")
+                    print("xref ", x_ref[6:14])
                     # Linearize dynamics
                     log("Linearizing dynamics...")
                     current_u = u_opt if step > 0 else ref_window[0]
@@ -208,7 +216,7 @@ def main():
                         pid.set_targets(target=np.rad2deg(x_ref[6:14,0]))
                     else:
                         print("Switching to MPC control")
-                        pid.set_targets(target=(theta_opt))
+                        pid.set_targets(target=(np.rad2deg(theta_opt)))
 
                     # Log data
                     log("Logging data...")

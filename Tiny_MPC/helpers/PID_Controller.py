@@ -97,12 +97,14 @@ class PID_Controller:
         #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e, de_dt, int_e = 10000, 100, 1
         error_vec = e*np.ones(8)
-        # print(self.targets)
+        #print(self.targets)
         # print(self.targets[self.t,0])
         desired_angles = np.array([np.deg2rad(self.targets[self.t,num]) for num in self.actuator_nums])
         self.t += 1
+        #print(np.shape(self.targets))
         if self.t >= len(self.targets):
             self.t = 0
+        #print(self.t)
         # Calculate errors
         error_vec = desired_angles - self.get_angles(self.actuator_nums)
         self.int_error_vec += error_vec*self.dt
