@@ -70,7 +70,7 @@ class MPCConfig:
                                 1e8, 1e8, 1e8, 1e8, 1e8, 1e8, 1e8, 1e8,  # Joint angles 
                                 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1]) # Joint velocities
 
-        self.R = np.diag([1e-1]*8)  # Reduced control cost
+        self.R = np.diag([1e-2]*8)  # Reduced control cost
         
         self.mpc.Q = self.Q
         self.R = np.diag([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]) 

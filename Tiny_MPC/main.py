@@ -36,7 +36,7 @@ def main():
         
         # Initialize components
         log("Initializing components...")
-        mpc_config = MPCConfig(N=8)
+        mpc_config = MPCConfig(N=22)
         kinematics = KinematicsHelper()
         pid = PID_Controller("urdf/bittle.xml", 
                              dt=sim_dt,
@@ -49,7 +49,8 @@ def main():
         # Convert skill to reference trajectory
         log("Creating reference trajectory...")
         bk_ref = np.deg2rad(np.repeat(balance, 100, axis=0))  # Repeat each row 100 times
-        reference_traj = bk_ref.copy()  # Reorder to match actuator mapping
+        reference_traj = bk_ref.copy()  
+        #reference_traj = np.deg2rad(np.array(bk))
         log(f"Reference trajectory shape: {reference_traj.shape}")
 
         with mujoco.viewer.launch_passive(pid.model, pid.data) as viewer:
@@ -101,31 +102,41 @@ def main():
                         reference_traj[(mpc_step + k) % len(reference_traj)]
                         for k in range(mpc_config.N)
                     ])
-                    print("ref_angle_window", ref_angle_window)
+                    #print("ref_angle_window", ref_angle_window)
                     log(f"ref_window shape: {ref_window.shape}, ref_angle_window shape: {ref_angle_window.shape}")
 
                     # Build reference trajectories
                     log("Building reference trajectories...")
                     x_ref = np.zeros((nx, mpc_config.N))
                     for k in range(mpc_config.N-1):
-                        #com_des = kinematics.joints_to_com(ref_angle_window[k])
-                        #com_des_dot = (kinematics.joints_to_com(ref_angle_window[k+1]) - com_des)/mpc_dt
-                        x_ref[0:3, k] = state[0:3]
-                        x_ref[1,k] = 0.09
-                        x_ref[2,k] = 0
-                        #log(f"com_des: {com_des.tolist()}")
-                        x_ref[3:6, k] = state[3:6]
-                        print(ref_angle_window[:,k])
-                        x_ref[6:14, k] = ref_angle_window[:,k]
-                        x_ref[14:22, k] = (ref_angle_window[k+1] - ref_angle_window[k])/mpc_dt
-                    # Fill the last joint angle reference at horizon end
+                        # Compute desired CoM position from joint angles
+                        com_des = kinematics.joints_to_com(ref_angle_window[k])
+                        # Compute desired CoM velocity from finite difference
+                        com_des_dot = (kinematics.joints_to_com(ref_angle_window[k+1]) - com_des) / mpc_dt
+                        
+                        # Set CoM position reference (x, y, yaw)
+                        x_ref[0:3, k] = com_des
+                        # If you want to fix height or yaw, you can override here, e.g.:
+                        # x_ref[1, k] = 0.09  # fixed height
+                        # x_ref[2, k] = 0     # fixed yaw
+                        
+                        # Set CoM velocity reference
+                        x_ref[3:6, k] = com_des_dot
+                        
+                        # Set joint angles reference
+                        x_ref[6:14, k] = ref_angle_window[k]
+                        
+                        # Set joint velocities reference by finite difference
+                        x_ref[14:22, k] = (ref_angle_window[k+1] - ref_angle_window[k]) / mpc_dt
+
+                    # For the terminal step, fill in last references (angles and velocities)
                     x_ref[6:14, mpc_config.N - 1] = ref_angle_window[-1]
-
-                    # Optionally, set joint velocities at last step to zero or approximate
-                    x_ref[14:22, mpc_config.N - 1] = 0  # or (ref_angle_window[-1] - ref_angle_window[-2]) / mpc_dt
-
+                    x_ref[14:22, mpc_config.N - 1] = 0  # or approximate velocity if desired
+                    # Optionally set terminal CoM position and velocity similarly
+                    x_ref[0:3, mpc_config.N - 1] = kinematics.joints_to_com(ref_angle_window[-1])
+                    x_ref[3:6, mpc_config.N - 1] = 0
                     #log(f"x_ref shape: {x_ref.shape}")
-                    print("xref ", x_ref[6:14])
+                    #print("xref ", x_ref[6:14])
                     # Linearize dynamics
                     log("Linearizing dynamics...")
                     current_u = u_opt if step > 0 else ref_window[0]
@@ -140,7 +151,7 @@ def main():
                         log("First step - using reference control")
                         current_u = grf_ref[:, 0]
                     else:
-                        log(f"Using previous MPC solution: {u_opt.tolist()}")
+                        log(f"Using previous MPC solution: {grf_opt.tolist()}")
                         current_u = grf_opt
                     
                    
@@ -212,8 +223,8 @@ def main():
 
                     # Execute control
                     log("Updating joint targets...")
-                    if mpc_step <= 20:
-                        pid.set_targets(target=np.rad2deg(x_ref[6:14,0]))
+                    if False: # mpc_step <= 20:
+                        pid.set_targets(target=np.array(balance))
                     else:
                         print("Switching to MPC control")
                         pid.set_targets(target=(np.rad2deg(theta_opt)))

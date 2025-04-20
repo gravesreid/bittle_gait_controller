@@ -316,6 +316,7 @@ class PetoiKinematics:
 
         # Final COM position
         com = total_com / total_mass
+        com[1] *= -1
         return com[:2] # Return com x,z
 
 
