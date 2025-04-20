@@ -49,7 +49,7 @@ def main():
         # Convert skill to reference trajectory
         log("Creating reference trajectory...")
         bk_ref = np.deg2rad(np.repeat(balance, 100, axis=0))  # Repeat each row 100 times
-        reference_traj = bk_ref[:, [3,7,0,4,2,6,1,5]]  # Reorder to match actuator mapping
+        reference_traj = bk_ref.copy()  # Reorder to match actuator mapping
         log(f"Reference trajectory shape: {reference_traj.shape}")
 
         with mujoco.viewer.launch_passive(pid.model, pid.data) as viewer:
@@ -116,7 +116,7 @@ def main():
                         x_ref[3:6, k] = state[3:6]
                         x_ref[6:14, k] = ref_angle_window[k]
                         x_ref[14:22, k] = (ref_angle_window[k+1] - ref_angle_window[k])/mpc_dt
-                    log(f"x_ref shape: {x_ref.shape}")
+                    #log(f"x_ref shape: {x_ref.shape}")
 
                     # Linearize dynamics
                     log("Linearizing dynamics...")
@@ -198,8 +198,9 @@ def main():
 
                     # Convert torque to theta_ref
                     theta_ref = state[6:14] + u_opt / kp
-                    log(f"theta_ref: {x_ref[6:14,0].tolist()}")
+                    log(f"theta_ref: {x_ref[6:14,:].tolist()}")
                     log(f"theta_opt: {theta_opt.tolist()}")
+                    log(f"theta_cur: {state[6:14].tolist()}")
 
                     # Execute control
                     log("Updating joint targets...")
@@ -207,7 +208,7 @@ def main():
                         pid.set_targets(target=np.rad2deg(x_ref[6:14,0]))
                     else:
                         print("Switching to MPC control")
-                        pid.set_targets(target=np.rad2deg(theta_opt))
+                        pid.set_targets(target=(theta_opt))
 
                     # Log data
                     log("Logging data...")

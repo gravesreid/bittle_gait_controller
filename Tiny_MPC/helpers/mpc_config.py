@@ -67,7 +67,7 @@ class MPCConfig:
         # In the MPC setup section, modify these parameters:
         self.Q = np.diag([1e3, 1e3, 1e2,  # COM x,z,yaw
                                 1e1, 1e1, 1e0,   # COM velocities
-                                1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3, 1e3,  # Joint angles 
+                                1e8, 1e8, 1e8, 1e8, 1e8, 1e8, 1e8, 1e8,  # Joint angles 
                                 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1]) # Joint velocities
 
         self.R = np.diag([1e-1]*8)  # Reduced control cost

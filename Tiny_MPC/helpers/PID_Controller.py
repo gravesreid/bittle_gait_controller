@@ -81,21 +81,28 @@ class PID_Controller:
     
     def set_targets(self, target):
         self.t = 0
-        # If target is list of lists, convert to numpy array
-        if isinstance(target, list) and all(isinstance(i, list) for i in target):
-            target = np.array(target)
+        # # If target is list of lists, convert to numpy array
+        # if isinstance(target, list) and all(isinstance(i, list) for i in target):
+            
         # If target is 1d numpy array, convert to 2d
         if target.ndim == 1:
             target = target.reshape(1, -1)
+        else:
+            print("kazam")
+
         self.targets = target
+        
     
     def step(self, viewer):
         #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e, de_dt, int_e = 10000, 100, 1
         error_vec = e*np.ones(8)
-        
-        desired_angles = np.array([np.deg2rad(self.targets[self.t%len(self.targets)][num]) for num in self.actuator_nums])
-
+        # print(self.targets)
+        # print(self.targets[self.t,0])
+        desired_angles = np.array([np.deg2rad(self.targets[self.t,num]) for num in self.actuator_nums])
+        self.t += 1
+        if self.t >= len(self.targets):
+            self.t = 0
         # Calculate errors
         error_vec = desired_angles - self.get_angles(self.actuator_nums)
         self.int_error_vec += error_vec*self.dt
