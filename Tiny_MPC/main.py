@@ -26,17 +26,29 @@ def main():
         steps_per_mpc_step = int(mpc_dt / sim_dt)
         nx = 22           # State dimension
         nu = 8            # Control dimension
-        num_timesteps = 1e4
+        num_timesteps = 5e3
         log(f"Parameters set: mpc_dt={mpc_dt}, sim_dt={sim_dt}, steps_per_mpc_step={steps_per_mpc_step}")
 
         # PID parameters
         kp = 1e2
         kd = 5e-1
         ki = 5e-1
-        
+        error_threshold = 0.03
+        max_timesteps = 500
+        # Convert skill to reference trajectory
+        log("Creating reference trajectory...")
+        gait = wkf
+        bk_ref = np.deg2rad(np.repeat(gait, 64, axis=0))  # Repeat each row 100 times
+        print(f"Reference trajectory shape: {bk_ref.shape}")
+        reference_traj = bk_ref.copy()  
+        #reference_traj = np.deg2rad(np.array(wkf))
+        print(f"Reference trajectory shape after conversion: {reference_traj.shape}")
+        log(f"Reference trajectory shape: {reference_traj.shape}")
         # Initialize components
         log("Initializing components...")
-        mpc_config = MPCConfig(N=22)
+        horizon_multiplier = 2
+        mpc_config = MPCConfig(N=reference_traj.shape[0]*horizon_multiplier)
+
         kinematics = KinematicsHelper()
         pid = PID_Controller("urdf/bittle.xml", 
                              dt=sim_dt,
@@ -46,12 +58,7 @@ def main():
         logger = DataLogger()
         log("Components initialized")
         
-        # Convert skill to reference trajectory
-        log("Creating reference trajectory...")
-        bk_ref = np.deg2rad(np.repeat(balance, 100, axis=0))  # Repeat each row 100 times
-        reference_traj = bk_ref.copy()  
-        #reference_traj = np.deg2rad(np.array(bk))
-        log(f"Reference trajectory shape: {reference_traj.shape}")
+       
 
         with mujoco.viewer.launch_passive(pid.model, pid.data) as viewer:
             log("Mujoco viewer launched")
@@ -64,6 +71,7 @@ def main():
                 current_time = step * sim_dt
                 
                 if step % steps_per_mpc_step == 0:  # MPC update rate
+                    targets = np.zeros((1, 8))  # Initialize targets
                     log(f"\nMPC update step {step//steps_per_mpc_step}")
                     # Get current state
                     log("Getting current state...")
@@ -144,9 +152,9 @@ def main():
                     for k in range(mpc_config.N-1):
                         u_ref[:, k] = ref_window[k % len(ref_window), :]
                     grf_ref = u_ref.copy()
-                    for k in range(mpc_config.N-1):
-                        grf_numeric = mpc_config.joints_to_GRF_func(ref_angle_window[k], u_ref[:, k])
-                        grf_ref[:, k] = np.array(grf_numeric).flatten()
+                    # for k in range(mpc_config.N-1):
+                    #     grf_numeric = mpc_config.joints_to_GRF_func(ref_angle_window[k], u_ref[:, k])
+                    #     grf_ref[:, k] = np.array(grf_numeric).flatten()
                     if step == 0:
                         log("First step - using reference control")
                         current_u = grf_ref[:, 0]
@@ -228,6 +236,8 @@ def main():
                     else:
                         print("Switching to MPC control")
                         pid.set_targets(target=(np.rad2deg(theta_opt)))
+                        
+                        
 
                     # Log data
                     log("Logging data...")
@@ -238,14 +248,19 @@ def main():
                         actual_angles=pid.get_angles([3,7,0,4,2,6,1,5]),
                         actual_com= np.array([pid.data.qpos[0], pid.data.qpos[2], pid.data.qpos[6]]),
                         controls=u_opt,
-                        reference_angles=ref_angle_window[0],  # Log first reference angle of the window
+                        reference_angles=ref_angle_window,  # Log first reference angle of the window
                         log_file = log_file
                     )
                     log("Data logged")
 
                 # MPC Update finished
                 # Simulation step
-                pid.step(viewer)
+                for step in range(max_timesteps):
+                    error = pid.step(viewer)
+                    if np.all((error) < error_threshold):
+                        break
+                # pid.execute(targets,100,sim_dt,kp,ki,kd, viewer=viewer, plotty=False)
+                # targets = []
 
             # Generate plots
             log("Generating plots...")

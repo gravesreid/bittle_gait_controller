@@ -42,120 +42,99 @@ class DataLogger:
 
     
     def plot_results(self, u_ref, mpc_history, reference_angles):
-        """Generate all plots"""
+        import matplotlib.pyplot as plt
+        import numpy as np
+        
+        plt.rcParams.update({'font.size': 40})  # Set global font size to 40
+
         mpc_config = MPCConfig(N=10)
         joint_limits = mpc_config.joint_limits
         kinematics = KinematicsHelper()
         reference_com = [kinematics.joints_to_com(joint) for joint in reference_angles]
+
         # Convert reference trajectory
         u_ref_deg = np.rad2deg(u_ref.T)  # Shape (N, 8)
-        
-        # Convert logged controls (use control_signals instead of mpc_solutions)
+
+        # Convert logged controls
         controls = np.array(mpc_history['control_signals'])  # (T, 8)
-        
-        # Plotting code
-        fig, axs = plt.subplots(4, 2, figsize=(15, 10))
-        axs = axs.flatten()
-        joint_labels = [
-            "left-back-shoulder", "left-back-knee",
-            "left-front-shoulder", "left-front-knee",
-            "right-back-shoulder", "right-back-knee",
-            "right-front-shoulder", "right-front-knee"
-        ]
-
-        for i in range(8):
-            # Plot reference (first N steps)
-            axs[i].plot(u_ref_deg[:len(controls), i], 'b--', label='Reference')
-            
-            # Plot actual controls
-            axs[i].plot(np.rad2deg(controls[:, i]), 'g-', label='Actual')
-            
-            axs[i].set_title(joint_labels[i])
-            axs[i].set_ylabel('Angle (deg)')
-            axs[i].legend()
-            axs[i].grid(True)
-
-        plt.tight_layout()
-        plt.show()
 
         # Joint names and colors
-        joint_names = ['left-back-shoulder', 'left-back-knee', 
-                    'left-front-shoulder', 'left-front-knee',
-                    'right-back-shoulder', 'right-back-knee',
-                    'right-front-shoulder', 'right-front-knee']
+        joint_names = ['Shoulder BL', 'Knee BL', 
+                    'Shoulder FL', 'Knee FL',
+                    'Shoulder BR', 'Knee BR',
+                    'Shoulder FR', 'Knee FR']
         colors = plt.cm.viridis(np.linspace(0, 1, 8))
-        com_labels = ['X', 'Z', 'Yaw']
 
-        # Joint Angles with Limits - Subplots
-        fig, axes = plt.subplots(4, 2, figsize=(14, 10), sharex=True)
-        axes = axes.flatten()
+        # === Plot all joint angles on a single plot ===
+        plt.figure(figsize=(20, 12))
+        timesteps = mpc_history['timesteps']
 
         for j in range(8):
-            ax = axes[j]
-
-            # Get actual and planned for joint j
+            # Extract planned, actual, and reference angles for joint j in degrees
             planned = np.rad2deg([angles[j] for angles in mpc_history['planned_angles']])
             actual = np.rad2deg([angles[j] for angles in mpc_history['actual_angles']])
 
-            # Try to get reference (safely handles shorter reference arrays)
-            if len(reference_angles) >= len(mpc_history['timesteps']):
-                ref = np.rad2deg([angles[j] for angles in reference_angles[:len(mpc_history['timesteps'])]])
+            # Handle reference angles length safely
+            if len(reference_angles) >= len(timesteps):
+                ref = np.rad2deg([angles[j] for angles in reference_angles[:len(timesteps)]])
             else:
                 ref = np.rad2deg([angles[j] for angles in reference_angles])
                 last_val = ref[-1]
-                ref = list(ref) + [last_val] * (len(mpc_history['timesteps']) - len(ref))  # pad with last value
-            
-            # Now plot all three
-            ax.plot(mpc_history['timesteps'], ref, color='blue', linestyle=':', label='Reference')
-            ax.plot(mpc_history['timesteps'], planned, color=colors[j], linestyle='-', label='Planned')
-            ax.plot(mpc_history['timesteps'], actual, color=colors[j], linestyle='--', label='Actual')
+                ref = list(ref) + [last_val] * (len(timesteps) - len(ref))
 
-            ax.set_ylabel("Angle (deg)")
-            ax.set_title(joint_names[j])
-            ax.grid(True)
-            ax.legend()
+            # Plot reference with dotted blue line
+            plt.plot(timesteps, ref, color='blue', linestyle=':', linewidth=3, label='Reference')
 
-        # Pad reference_com to match timesteps
-        T = len(mpc_history['timesteps'])
-        if len(reference_com) < T:
-            last_val = reference_com[-1]
-            reference_com += [last_val] * (T - len(reference_com))
-        else:
-            reference_com = reference_com[:T]
+            # Plot planned with solid colored line
+            #plt.plot(timesteps, planned, color=colors[j], linestyle='-', linewidth=3, label=f'Planned {joint_names[j]}')
 
-        # Now plot CoM
-        plt.figure(figsize=(10, 6))
-        for i in range(3):
-            ref = [com[i] for com in reference_com]
-            planned = [com[i] for com in mpc_history['planned_com']]
-            actual = [com[i] for com in mpc_history['actual_com']]
-            
-            plt.plot(mpc_history['timesteps'], ref, linestyle=':', label=f'Reference {com_labels[i]}')
-            plt.plot(mpc_history['timesteps'], planned, linestyle='-', label=f'Planned {com_labels[i]}')
-            plt.plot(mpc_history['timesteps'], actual, linestyle='--', label=f'Actual {com_labels[i]}')
+            # Plot actual with dashed colored line
+            plt.plot(timesteps, actual, color=colors[j], linestyle='--', linewidth=3, label=f' {joint_names[j]}')
 
-        plt.title('Center of Mass Trajectory')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Position (m)/Angle (rad)')
-        plt.legend()
+        plt.title('Joint Angles Over Time', fontsize=48)
+        plt.xlabel('Time (s)', fontsize=44)
+        plt.ylabel('Angle (deg)', fontsize=44)
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=35)
         plt.grid(True)
         plt.tight_layout()
-        plt.savefig('com_trajectory.png')
         plt.show()
 
-        # 3. Control Signals
-        plt.figure(figsize=(12, 6))
-        for j in range(8):
-            plt.plot(
-                mpc_history['timesteps'],
-                [ctrl[j] for ctrl in mpc_history['control_signals']],
-                color=colors[j], label=f'{joint_names[j]} torque'
-            )
-        plt.title('Control Signals')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Torque (Nm)')
-        plt.legend(ncol=2)
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig('control_signals.png')
-        plt.show()
+        # === Rest of your plots remain unchanged ===
+        # (CoM trajectory, control signals, etc.)
+
+        # # Now plot CoM
+        # plt.figure(figsize=(10, 6))
+        # for i in range(3):
+        #     ref = [com[i] for com in reference_com]
+        #     planned = [com[i] for com in mpc_history['planned_com']]
+        #     actual = [com[i] for com in mpc_history['actual_com']]
+            
+        #     plt.plot(mpc_history['timesteps'], ref, linestyle=':', label=f'Reference {com_labels[i]}')
+        #     plt.plot(mpc_history['timesteps'], planned, linestyle='-', label=f'Planned {com_labels[i]}')
+        #     plt.plot(mpc_history['timesteps'], actual, linestyle='--', label=f'Actual {com_labels[i]}')
+
+        # plt.title('Center of Mass Trajectory')
+        # plt.xlabel('Time (s)')
+        # plt.ylabel('Position (m)/Angle (rad)')
+        # plt.legend()
+        # plt.grid(True)
+        # plt.tight_layout()
+        # plt.savefig('com_trajectory.png')
+        # plt.show()
+
+        # # 3. Control Signals
+        # plt.figure(figsize=(12, 6))
+        # for j in range(8):
+        #     plt.plot(
+        #         mpc_history['timesteps'],
+        #         [ctrl[j] for ctrl in mpc_history['control_signals']],
+        #         color=colors[j], label=f'{joint_names[j]} torque'
+        #     )
+        # plt.title('Control Signals')
+        # plt.xlabel('Time (s)')
+        # plt.ylabel('Torque (Nm)')
+        # plt.legend(ncol=2)
+        # plt.grid(True)
+        # plt.tight_layout()
+        # plt.savefig('control_signals.png')
+        # plt.show()

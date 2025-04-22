@@ -8,7 +8,7 @@ matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 
 import os
 
-from skills import wkf
+from skills import wkf, bk
 from PID_Controller import PID_Controller
 
 pid_controller = PID_Controller("urdf/bittle.xml")
@@ -26,4 +26,4 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
         ctypes.windll.user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE = 3
     print("Walk Forward")
     for t in range(num_timesteps):
-        pid_controller.execute(wkf[t%len(wkf)],1,dt,kp,ki,kd, viewer=viewer, plotty=False)
+        pid_controller.execute(bk[t%len(bk)],1,dt,kp,ki,kd, viewer=viewer, plotty=False)

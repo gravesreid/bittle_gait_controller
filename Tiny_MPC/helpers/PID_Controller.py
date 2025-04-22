@@ -109,6 +109,9 @@ class PID_Controller:
         error_vec = desired_angles - self.get_angles(self.actuator_nums)
         self.int_error_vec += error_vec*self.dt
         de_dt_vec = (error_vec - self.prev_error_vec)/self.dt
+        num_timesteps = 500
+        error_threshold = 0.01
+
 
         # PID control for each joint
         for j, num in enumerate(self.actuator_nums):
@@ -125,61 +128,67 @@ class PID_Controller:
             self.data.ctrl[self.actuator_to_ctrl[self.actuator_map[num]]] = ctrl
             self.prev_error_vec[j] = e
         
+    
         # Single simulation step
         mujoco.mj_step(self.model, self.data)
         viewer.sync()
+        return (np.abs(error_vec))
+        # Exit loop if all errors are below threshold
+        # if np.all(np.abs(error_vec) < error_threshold):
+        #     break
 
     def execute(self, target, num_timesteps, dt, kp, ki, kd, viewer, clipped_control = False, limits = [0,0], plotty =False):
-        #print("Actuator to ctrl mapping:", actuator_to_ctrl)
+            #print("Actuator to ctrl mapping:", actuator_to_ctrl)
         e = 10000
         error_vec = 100*np.ones(8)
         prev_error_vec = np.zeros(8)
         int_error_vec = np.zeros(8)
-        
+        error_threshold = 0.03  # Threshold for convergence
         num_joints = 8
         angle_holder = np.zeros((num_timesteps, num_joints))
         reference_holder = np.zeros((num_timesteps, num_joints))
         actuator_nums = [3,7,0,4,2,6,1,5]
         index = 0
+        time_to_get_there = 500
+        for k in range(num_timesteps):
+            for t in target:
+                desired_angles = np.array([np.deg2rad(t[num]) for num in actuator_nums])
+                for i in range(time_to_get_there):
+                    # Calculate errors
+                    error_vec = desired_angles - self.get_angles(actuator_nums)
+                    int_error_vec += error_vec*dt
+                    de_dt_vec = (error_vec - prev_error_vec)/dt
 
-        desired_angles = np.array([np.deg2rad(target[num]) for num in actuator_nums])
-        for i in range(num_timesteps):
-            # Calculate errors
-            error_vec = desired_angles - self.get_angles(actuator_nums)
-            int_error_vec += error_vec*dt
-            de_dt_vec = (error_vec - prev_error_vec)/dt
+                    # PID control - single update per timestep
+                    for j, num in enumerate(actuator_nums):
+                        e = error_vec[j]
+                        de_dt = de_dt_vec[j]
+                        int_e = int_error_vec[j]
 
-            # PID control - single update per timestep
-            for j, num in enumerate(actuator_nums):
-                e = error_vec[j]
-                de_dt = de_dt_vec[j]
-                int_e = int_error_vec[j]
+                        ctrl = kp*e + ki*int_e + kd*de_dt
 
-                ctrl = kp*e + ki*int_e + kd*de_dt
+                        # PID control with clipping
+                        if clipped_control == True:
+                            ctrl = np.clip(ctrl, limits[0], limits[1])
+                        
+                        self.data.ctrl[self.actuator_to_ctrl[self.actuator_map[num]]] = ctrl
+                        prev_error_vec[j] = e 
+                    
+                    # Single simulation step
+                    mujoco.mj_step(self.model, self.data)
+                    viewer.sync()
 
-                # PID control with clipping
-                if clipped_control == True:
-                    ctrl = np.clip(ctrl,limits[0],limits[1])
-                
-                self.data.ctrl[self.actuator_to_ctrl[self.actuator_map[num]]] = ctrl
-                prev_error_vec[j] = e 
-            
-            # Single simulation step
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+                    if i % len(target) == 0:
+                        index = (index + 1) % len(target)
 
+                    
+                    # After convergence (or reaching max iterations), store final angles:
+                    # angle_holder[i, :] = self.get_angles(actuator_nums)
+                    # reference_holder[i, :] = desired_angles
 
-            if i % 50 == 0:
-                index = (index + 1) % len(target)
-
-            
-            # After convergence (or reaching max iterations), store final angles:
-            angle_holder[i, :] = self.get_angles(actuator_nums)
-            reference_holder[i, :] = desired_angles
-
-            #self.data.ctrl[actuator_to_ctrl["left-back-knee-joint"]] = np.clip(np.deg2rad(wkf[index][7]) / np.pi, -1, 1)
-            #index += 1
-            #time.sleep(0.005)
+                    # Exit loop if all errors are below threshold
+                    if np.all(np.abs(error_vec) < error_threshold):
+                        break
             
         if plotty:  
             # Create time array

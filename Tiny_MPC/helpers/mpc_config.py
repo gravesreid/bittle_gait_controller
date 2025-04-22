@@ -80,15 +80,25 @@ class MPCConfig:
         self.mpc.x_max = np.inf * np.ones(self.mpc.nx)
         
         # Joint angle limits from XML
+        # joint_limits = np.array([
+        #     [-1.5708, 1.22173],   # left-back-shoulder
+        #     [-1.22173, 1.48353],  # left-back-knee
+        #     [-1.5708, 1.22173],   # left-front-shoulder
+        #     [-1.22173, 1.48353],  # left-front-knee
+        #     [-1.5708, 1.22173],   # right-back-shoulder
+        #     [-1.22173, 1.48353],  # right-back-knee
+        #     [-1.5708, 1.22173],   # right-front-shoulder
+        #     [-1.22173, 1.48353]   # right-front-knee
+        # ])
         joint_limits = np.array([
-            [-1.5708, 1.22173],   # left-back-shoulder
-            [-1.22173, 1.48353],  # left-back-knee
-            [-1.5708, 1.22173],   # left-front-shoulder
-            [-1.22173, 1.48353],  # left-front-knee
-            [-1.5708, 1.22173],   # right-back-shoulder
-            [-1.22173, 1.48353],  # right-back-knee
-            [-1.5708, 1.22173],   # right-front-shoulder
-            [-1.22173, 1.48353]   # right-front-knee
+            [-1.3, 1.0],   # left-back-shoulder
+            [-1.0, 1.2],  # left-back-knee
+            [-1.3, 1.0],   # left-back-shoulder
+            [-1.0, 1.2], # left-front-knee
+            [-1.3, 1.0],   # left-back-shoulder
+            [-1.0, 1.2],  # right-back-knee
+            [-1.3, 1.0],   # left-back-shoulder
+            [-1.0, 1.2]   # right-front-knee
         ])
         self.joint_limits = joint_limits
         # Apply joint angle constraints (indices 6-13 in state vector)
