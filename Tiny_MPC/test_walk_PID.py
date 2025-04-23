@@ -16,14 +16,15 @@ kp = 11
 kd = 1
 ki = 8e-1
 dt = 1e-3
+error_threshold = 0.06
+max_timesteps = 77
 num_timesteps = int(2e4)
 pid_controller = PID_Controller("urdf/bittle.xml",dt=dt,
                              kp=kp,
                              ki=ki,
                              kd=kd)
-gait = bk
-error_threshold = 0.06
-max_timesteps = 77
+gait = balance
+
 
 with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as viewer:
     # if os.name == 'nt':
@@ -33,8 +34,6 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
     print("Walk Forward")
     for t in range(num_timesteps):
         pid_controller.set_targets(np.array(gait[t%len(gait)]))
-        #print(np.array(gait[t%len(gait)]))
-        #pid_controller.execute(gait,500,dt,kp,ki,kd, viewer=viewer, plotty=False)
         for step in range(max_timesteps):
             error = pid_controller.step(viewer)
             if np.all((error) < error_threshold):

@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use("TkAgg")  # or "Qt5Agg", depending on your setup
 
 class PID_Controller:
-    def __init__(self, xml_path, dt, kp=1.0, ki=0.0, kd=0.1):
+    def __init__(self, xml_path, dt, kp=1.0, ki=0.0, kd=0.1,max_deg_per_sec=60):
         # Load self.model and self.data
         self.model = mujoco.MjModel.from_xml_path(xml_path)
         self.data = mujoco.MjData(self.model)
@@ -16,6 +16,8 @@ class PID_Controller:
         self.kp = kp
         self.ki = ki
         self.kd = kd
+        self.rate_limited_target = None
+        self.max_rad_per_step = np.deg2rad(max_deg_per_sec) * dt 
 
         self.clipped_control = False
         self.limits = [0,0]
@@ -80,17 +82,18 @@ class PID_Controller:
         return np.array(self.data.qvel[[self.jointVel_to_qpos[self.actuator_map[num]] for num in actuator_nums]])
     
     def set_targets(self, target):
-        self.t = 0
-        # # If target is list of lists, convert to numpy array
-        # if isinstance(target, list) and all(isinstance(i, list) for i in target):
-            
-        # If target is 1d numpy array, convert to 2d
-        if target.ndim == 1:
-            target = target.reshape(1, -1)
+        target_rad = np.deg2rad(target)
+        
+        if self.rate_limited_target is None:  # First target
+            self.rate_limited_target = target_rad.copy()
         else:
-            print("kazam")
+            # Calculate allowed change per joint
+            delta = target_rad - self.rate_limited_target
+            step = np.clip(delta, -self.max_rad_per_step, self.max_rad_per_step)
+            self.rate_limited_target += step
 
-        self.targets = target
+        # Convert back to degrees for internal storage
+        self.targets = np.rad2deg(self.rate_limited_target).reshape(1, -1)
         
     
     def step(self, viewer):
@@ -112,7 +115,7 @@ class PID_Controller:
         de_dt_vec = (error_vec - self.prev_error_vec)/self.dt
         num_timesteps = 500
         error_threshold = 0.01
-
+        
 
         # PID control for each joint
         for j, num in enumerate(self.actuator_nums):

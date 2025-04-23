@@ -26,18 +26,19 @@ def main():
         steps_per_step = int(sim_dt / sim_dt)
         nx = 22           # State dimension
         nu = 8            # Control dimension
-        num_timesteps = 100
+        num_timesteps = 2e4
         log(f"Parameters set: sim_dt={sim_dt}, sim_dt={sim_dt}, steps_per_step={steps_per_step}")
 
         # PID parameters
         kp = 11
         kd = 1
         ki = 8e-1
+
         error_threshold = 0.06
-        max_timesteps = 80
+        max_timesteps = 77
         # Convert skill to reference trajectory
         log("Creating reference trajectory...")
-        gait = bk
+        gait = wkf
         if gait == balance:
             bk_ref = np.deg2rad(np.repeat(gait, 64, axis=0))  # Repeat each row 100 times
         else:
@@ -50,7 +51,7 @@ def main():
         log(f"Reference trajectory shape: {reference_traj.shape}")
         # Initialize components
         log("Initializing components...")
-        horizon_multiplier = 3
+        horizon_multiplier = 1
         mpc_config = MPCConfig(N=int(reference_traj.shape[0]*horizon_multiplier))
         
         #mpc_config = MPCConfig(N=100)
@@ -60,7 +61,7 @@ def main():
                              dt=sim_dt,
                              kp=kp,
                              ki=ki,
-                             kd=kd)
+                             kd=kd,max_deg_per_sec=2500)
         logger = DataLogger()
         log("Components initialized")
         
@@ -131,11 +132,12 @@ def main():
                     # Set CoM position reference (x, y, yaw)
                     x_ref[0:3, k] = com_des
                     # If you want to fix height or yaw, you can override here, e.g.:
-                    x_ref[1, k] = 0.06  # fixed height
-                    # x_ref[2, k] = 0     # fixed yaw
-                    x_ref[0, k] = state[0] - 10 # x position +
+                    #x_ref[1, k] = 0.06  # fixed height
+                    #x_ref[2, k] = 0     # fixed yaw
+                    #x_ref[0, k] = state[0] - 10 # x position +
                     # Set CoM velocity reference
                     x_ref[3:6, k] = com_des_dot
+                    #x_ref[3,k] = -x_ref[0,k]/sim_dt
                     
                     # Set joint angles reference
                     x_ref[6:14, k] = ref_angle_window[k]
@@ -156,7 +158,7 @@ def main():
                 current_u = u_opt if step > 0 else ref_window[0]
                 u_ref = np.zeros((nu, mpc_config.N-1))
                 for k in range(mpc_config.N-1):
-                    u_ref[:, k] = ref_window[k % len(ref_window), :]
+                    u_ref[:, k] = ref_angle_window[k % len(ref_window), :]
                 grf_ref = u_ref.copy()
                 # for k in range(mpc_config.N-1):
                 #     grf_numeric = mpc_config.joints_to_GRF_func(ref_angle_window[k], u_ref[:, k])
@@ -235,8 +237,13 @@ def main():
                 log(f"theta_opt: {theta_opt.tolist()}")
                 log(f"theta_cur: {state[6:14].tolist()}")
 
-                
+                if step ==0:
+                    prev_theta_opt = theta_opt.copy() 
+                # Add trajectory smoothing
+                blend_ratio = .8 # Tune based on stability
+                theta_ref = (1-blend_ratio)*prev_theta_opt + blend_ratio*theta_opt
                 targets = np.rad2deg(theta_opt)
+                prev_theta_opt = theta_ref
                     #pid.set_targets(target=(np.rad2deg(theta_opt)))
                     
                     

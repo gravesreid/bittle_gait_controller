@@ -45,7 +45,7 @@ class DataLogger:
         import matplotlib.pyplot as plt
         import numpy as np
         
-        plt.rcParams.update({'font.size': 40})  # Set global font size to 40
+        plt.rcParams.update({'font.size': 10})  # Set global font size to 40
 
         mpc_config = MPCConfig(N=10)
         joint_limits = mpc_config.joint_limits

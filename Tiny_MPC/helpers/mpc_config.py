@@ -63,14 +63,14 @@ class MPCConfig:
         self.mpc.N = self.N          # Prediction horizon
         self.mpc.nx = 22             # Number of states (same as your nx)
         self.mpc.nu = 8              # Number of controls (same as your nu)
-        b = 5e5
+        b = 5e13
         # In the MPC setup section, modify these parameters:
-        self.Q = np.diag([1e3, 1e3, 1e2,  # COM x,z,yaw
-                                1e1, 1e1, 1e0,   # COM velocities
+        self.Q = np.diag([0, 0, 0,  # COM x,z,yaw
+                                0, 0, 0,   # COM velocities
                                 b, b, b, b, b, b, b, b,  # Joint angles 
                                 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1]) # Joint velocities
 
-        self.R = np.diag([1e-2]*8)  # Reduced control cost
+        self.R = np.diag([1]*8)  # Reduced control cost
         
         self.mpc.Q = self.Q
         self.R = np.diag(np.ones(8)*0.1) 
