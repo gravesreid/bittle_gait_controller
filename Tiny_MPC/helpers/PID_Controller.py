@@ -99,6 +99,7 @@ class PID_Controller:
         error_vec = e*np.ones(8)
         #print(self.targets)
         # print(self.targets[self.t,0])
+        
         desired_angles = np.array([np.deg2rad(self.targets[self.t,num]) for num in self.actuator_nums])
         self.t += 1
         #print(np.shape(self.targets))

@@ -65,8 +65,8 @@ class DataLogger:
                     'Shoulder FR', 'Knee FR']
         colors = plt.cm.viridis(np.linspace(0, 1, 8))
 
-        # === Plot all joint angles on a single plot ===
-        plt.figure(figsize=(20, 12))
+        # === Plot all joint angles on separate subplots ===
+        fig, axs = plt.subplots(4, 2, figsize=(20, 20))
         timesteps = mpc_history['timesteps']
 
         for j in range(8):
@@ -83,21 +83,23 @@ class DataLogger:
                 ref = list(ref) + [last_val] * (len(timesteps) - len(ref))
 
             # Plot reference with dotted blue line
-            plt.plot(timesteps, ref, color='blue', linestyle=':', linewidth=3, label='Reference')
-
-            # Plot planned with solid colored line
-            #plt.plot(timesteps, planned, color=colors[j], linestyle='-', linewidth=3, label=f'Planned {joint_names[j]}')
+            axs[j // 2, j % 2].plot(timesteps, ref, color='blue', linestyle=':', linewidth=3, label='Reference')
 
             # Plot actual with dashed colored line
-            plt.plot(timesteps, actual, color=colors[j], linestyle='--', linewidth=3, label=f' {joint_names[j]}')
+            axs[j // 2, j % 2].plot(timesteps, actual, color=colors[j], linestyle='--', linewidth=3, label=f'Actual {joint_names[j]}')
 
-        plt.title('Joint Angles Over Time', fontsize=48)
-        plt.xlabel('Time (s)', fontsize=44)
-        plt.ylabel('Angle (deg)', fontsize=44)
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=35)
-        plt.grid(True)
+            axs[j // 2, j % 2].set_title(joint_names[j])
+            axs[j // 2, j % 2].set_xlabel('Time (s)')
+            axs[j // 2, j % 2].set_ylabel('Angle (deg)')
+            axs[j // 2, j % 2].legend(loc='upper right', fontsize=20)
+            axs[j // 2, j % 2].grid(True)
+
         plt.tight_layout()
         plt.show()
+
+    # === Rest of your plots remain unchanged ===
+    # (CoM trajectory, control signals, etc.)
+
 
         # === Rest of your plots remain unchanged ===
         # (CoM trajectory, control signals, etc.)
