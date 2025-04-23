@@ -22,8 +22,8 @@ num_timesteps = int(2e4)
 pid_controller = PID_Controller("urdf/bittle.xml",dt=dt,
                              kp=kp,
                              ki=ki,
-                             kd=kd)
-gait = balance
+                             kd=kd, max_deg_per_sec=3000)
+gait = wkf
 
 
 with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as viewer:
@@ -34,9 +34,16 @@ with mujoco.viewer.launch_passive(pid_controller.model, pid_controller.data) as 
     print("Walk Forward")
     for t in range(num_timesteps):
         pid_controller.set_targets(np.array(gait[t%len(gait)]))
+        com_velocity_linear = pid_controller.data.qvel[0:2]    # x, y, z linear velocity of root body
+           
+        #if t%10 == 1:
+            #print("Center of Mass Linear Velocity (x):", np.round(np.linalg.norm(com_velocity_linear),2)*100)
         for step in range(max_timesteps):
             error = pid_controller.step(viewer)
+            
+
             if np.all((error) < error_threshold):
-                print(f"Converged in {step} steps at timestep {t}")
+                
+                #print(f"Converged in {step} steps at timestep {t}")
                 break
         

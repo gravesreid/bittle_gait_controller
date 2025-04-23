@@ -65,8 +65,8 @@ class MPCConfig:
         self.mpc.nu = 8              # Number of controls (same as your nu)
         b = 5e13
         # In the MPC setup section, modify these parameters:
-        self.Q = np.diag([0, 0, 0,  # COM x,z,yaw
-                                0, 0, 0,   # COM velocities
+        self.Q = np.diag([1e6, 1e-3, 1e-5,  # COM x,z,yaw
+                                1e5, 1e1, 1e1,   # COM velocities
                                 b, b, b, b, b, b, b, b,  # Joint angles 
                                 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1]) # Joint velocities
 

@@ -124,6 +124,7 @@ def main():
                 log("Building reference trajectories...")
                 x_ref = np.zeros((nx, mpc_config.N))
                 for k in range(mpc_config.N-1):
+                    booster = -2e5
                     # Compute desired CoM position from joint angles
                     com_des = kinematics.joints_to_com(ref_angle_window[k])
                     # Compute desired CoM velocity from finite difference
@@ -133,11 +134,11 @@ def main():
                     x_ref[0:3, k] = com_des
                     # If you want to fix height or yaw, you can override here, e.g.:
                     #x_ref[1, k] = 0.06  # fixed height
-                    #x_ref[2, k] = 0     # fixed yaw
-                    #x_ref[0, k] = state[0] - 10 # x position +
+                    x_ref[2, k] = 0     # fixed yaw
+                    x_ref[0, k] = x_ref[0,k] + booster # x position +
                     # Set CoM velocity reference
                     x_ref[3:6, k] = com_des_dot
-                    #x_ref[3,k] = -x_ref[0,k]/sim_dt
+                    x_ref[3,k] = booster
                     
                     # Set joint angles reference
                     x_ref[6:14, k] = ref_angle_window[k]
@@ -265,12 +266,17 @@ def main():
                 # MPC Update finished
                 # Simulation step
                 #targets = np.array(wkf)
-                for target in (targets):
+                for t,target in enumerate(targets):
                     pid.set_targets(target)
+                    com_velocity_linear = pid.data.qvel[0:2]    # x, y, z linear velocity of root body
+           
+                    #if t%10 == 1:
+                        #print("Center of Mass Linear Velocity (x):", np.round(np.linalg.norm(com_velocity_linear),2)*100)
                     for s in range(max_timesteps):
                         error = pid.step(viewer)
                         if np.all((error) < error_threshold):
-                            print(f"Converged in {s}")
+                            #print(f"Converged in {s}")
+                        
                             break
                 # for i in range(500):
                 #     pid.set_targets(targets[-1])
