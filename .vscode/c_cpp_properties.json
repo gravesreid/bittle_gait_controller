@@ -1,0 +1,27 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/aatish/devel/include/**",
+        "/home/aatish/ws_livox/devel/include/**",
+        "/opt/ros/noetic/include/**",
+        "/home/aatish/anaconda3/envs/h2mapping/include/**",
+        "/home/aatish/ws_livox/src/FAST_LIO/include/**",
+        "/home/aatish/ws_livox/src/map_manager/include/**",
+        "/home/aatish/src/PX4-SITL_gazebo-classic/include/**",
+        "/home/aatish/ws_livox/src/realsense-ros/realsense2_camera/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}
