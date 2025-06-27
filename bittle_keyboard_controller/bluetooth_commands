@@ -1,0 +1,5 @@
+sudo rfcomm bind 0 A0:DD:6C:23:47:2E
+sudo ln -s /dev/rfcomm0 /dev/ttyBT0
+ls -l /dev/rfcomm0
+sudo rfcomm show 0
+sudo chmod 666 /dev/rfcomm0

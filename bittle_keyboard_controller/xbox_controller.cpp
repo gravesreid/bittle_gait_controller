@@ -93,65 +93,65 @@ const char* button_name(int code) {
     }
 }
 
-int main() {
-    // Find Xbox controller
-    std::string dev_path = find_xbox_device();
-    if (dev_path.empty()) {
-        std::cerr << "Xbox controller not found!" << std::endl;
-        return 1;
-    }
+// int main() {
+//     // Find Xbox controller
+//     std::string dev_path = find_xbox_device();
+//     if (dev_path.empty()) {
+//         std::cerr << "Xbox controller not found!" << std::endl;
+//         return 1;
+//     }
 
-    std::cout << "Using device: " << dev_path << std::endl;
+//     std::cout << "Using device: " << dev_path << std::endl;
     
-    // Open device
-    int fd = open(dev_path.c_str(), O_RDONLY);
-    if (fd < 0) {
-        perror("Failed to open device");
-        return 1;
-    }
+//     // Open device
+//     int fd = open(dev_path.c_str(), O_RDONLY);
+//     if (fd < 0) {
+//         perror("Failed to open device");
+//         return 1;
+//     }
 
-    std::cout << "Xbox Controller detected: " << get_device_name(fd) << std::endl;
-    std::cout << "Press Ctrl+C to exit..." << std::endl << std::endl;
+//     std::cout << "Xbox Controller detected: " << get_device_name(fd) << std::endl;
+//     std::cout << "Press Ctrl+C to exit..." << std::endl << std::endl;
 
-    // Event reading loop
-    input_event ev;
-    while (true) {
-        ssize_t n = read(fd, &ev, sizeof(ev));
-        if (n != sizeof(ev)) {
-            if (errno == EAGAIN) continue;
-            perror("Error reading event");
-            break;
-        }
+//     // Event reading loop
+//     input_event ev;
+//     while (true) {
+//         ssize_t n = read(fd, &ev, sizeof(ev));
+//         if (n != sizeof(ev)) {
+//             if (errno == EAGAIN) continue;
+//             perror("Error reading event");
+//             break;
+//         }
 
-        // Print event information
-        switch (ev.type) {
-            case EV_KEY:
-                printf("[%s] %s: %s\n", 
-                       event_type(ev.type), 
-                       button_name(ev.code),
-                       ev.value ? "PRESSED " : "RELEASED");
-                break;
+//         // Print event information
+//         switch (ev.type) {
+//             case EV_KEY:
+//                 printf("[%s] %s: %s\n", 
+//                        event_type(ev.type), 
+//                        button_name(ev.code),
+//                        ev.value ? "PRESSED " : "RELEASED");
+//                 break;
                 
-            case EV_ABS:
-                // Special handling for D-Pad
-                if (ev.code == ABS_HAT0X || ev.code == ABS_HAT0Y) {
-                    if (ev.value != 0) {  // Filter out neutral position
-                        printf("[%s] %s: %d\n", 
-                               event_type(ev.type), 
-                               axis_name(ev.code),
-                               ev.value);
-                    }
-                } else {
-                    printf("[%s] %s: %d\n", 
-                           event_type(ev.type), 
-                           axis_name(ev.code),
-                           ev.value);
-                }
-                break;
-        }
-        fflush(stdout);
-    }
+//             case EV_ABS:
+//                 // Special handling for D-Pad
+//                 if (ev.code == ABS_HAT0X || ev.code == ABS_HAT0Y) {
+//                     if (ev.value != 0) {  // Filter out neutral position
+//                         printf("[%s] %s: %d\n", 
+//                                event_type(ev.type), 
+//                                axis_name(ev.code),
+//                                ev.value);
+//                     }
+//                 } else {
+//                     printf("[%s] %s: %d\n", 
+//                            event_type(ev.type), 
+//                            axis_name(ev.code),
+//                            ev.value);
+//                 }
+//                 break;
+//         }
+//         fflush(stdout);
+//     }
 
-    close(fd);
-    return 0;
-}
+//     close(fd);
+//     return 0;
+// }
